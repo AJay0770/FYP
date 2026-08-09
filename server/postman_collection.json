@@ -1,0 +1,443 @@
+{
+  "info": {
+    "name": "BuildSite 360 - Auth & Projects",
+    "description": "Batch 1 (Phases 0-2) coverage: 5 auth tests, 6 project tests, 6 negative-path tests. Run `npm run seed` first, then paste the printed tokens/IDs into the collection variables below. The Auth and Projects folders create/mutate/delete their own scratch project; the Negative Paths folder deliberately points at the seed script's project2 (Lakeside Villas) so it doesn't depend on that lifecycle and still works if run standalone.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "accessToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "engineerToken", "value": "" },
+    { "key": "otherClientToken", "value": "", "description": "client1's token, used to attempt cross-tenant access to project2 (owned by client2)" },
+    { "key": "clientId", "value": "", "description": "client1's user id, used as the owner of the scratch project created in this run" },
+    { "key": "engineerId", "value": "", "description": "engineer1's user id, assigned to the scratch project" },
+    { "key": "projectId", "value": "", "description": "auto-populated by 'Create Project' — the scratch project this run creates, updates, and deletes" },
+    { "key": "seedProject2Id", "value": "", "description": "id of seed script's project2 (Lakeside Villas), owned by client2, assigned engineer2" },
+    { "key": "seedEngineer2Id", "value": "", "description": "engineer2's user id, already assigned to seedProject2Id by the seed script" },
+    { "key": "registerEmail", "value": "postman-test@example.com" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "1. Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Response has user id, no passwordHash', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('id');",
+                  "  pm.expect(json).to.not.have.property('passwordHash');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Postman Test\", \"email\": \"{{registerEmail}}\", \"password\": \"password123\"}"
+            }
+          }
+        },
+        {
+          "name": "2. Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response has accessToken and user', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('accessToken');",
+                  "  pm.expect(json.user).to.have.property('role');",
+                  "  pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "});",
+                  "pm.test('Sets httpOnly refreshToken cookie', function () {",
+                  "  pm.expect(pm.cookies.has('refreshToken')).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{registerEmail}}\", \"password\": \"password123\"}"
+            }
+          }
+        },
+        {
+          "name": "3. Get Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Returns profile without passwordHash', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('email');",
+                  "  pm.expect(json).to.not.have.property('passwordHash');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "4. Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Returns a new accessToken', function () {",
+                  "  pm.expect(pm.response.json()).to.have.property('accessToken');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/refresh"
+          }
+        },
+        {
+          "name": "5. Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Clears refreshToken cookie', function () {",
+                  "  pm.expect(pm.response.headers.get('Set-Cookie')).to.include('refreshToken=;');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "6. Create Project (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Response includes engineers array', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.engineers).to.be.an('array');",
+                  "  pm.collectionVariables.set('projectId', json.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/projects",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Site A\", \"gpsLat\": 40.7128, \"gpsLng\": -74.0060, \"address\": \"123 Main St\", \"clientId\": \"{{clientId}}\", \"startDate\": \"2026-01-01\", \"expectedCompletionDate\": \"2026-12-31\", \"budgetEstimate\": 100000, \"engineerIds\": []}"
+            }
+          }
+        },
+        {
+          "name": "7. Get All Projects (role-scoped)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response is an array', function () { pm.expect(pm.response.json()).to.be.an('array'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/projects",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }]
+          }
+        },
+        {
+          "name": "8. Get Project by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Client relation has no passwordHash', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.client).to.not.have.property('passwordHash');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/projects/{{projectId}}",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }]
+          }
+        },
+        {
+          "name": "9. Update Project (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Status field updated', function () { pm.expect(pm.response.json().status).to.eql('ACTIVE'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/projects/{{projectId}}",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"ACTIVE\"}"
+            }
+          }
+        },
+        {
+          "name": "10. Assign Engineer (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/projects/{{projectId}}/assign-engineer",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"engineerId\": \"{{engineerId}}\"}"
+            }
+          }
+        },
+        {
+          "name": "11. Delete Project (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/projects/{{projectId}}",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative Paths",
+      "item": [
+        {
+          "name": "12. Create Project as ENGINEER (expect 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/projects",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{engineerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Should Fail\"}"
+            }
+          }
+        },
+        {
+          "name": "13. Get Me with missing token (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "14. Get Me with expired/invalid token (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/me",
+            "header": [{ "key": "Authorization", "value": "Bearer invalid.expired.token" }]
+          }
+        },
+        {
+          "name": "15. Cross-tenant project access (expect 404, not 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404, not 403 (no existence leak)', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/projects/{{seedProject2Id}}",
+            "header": [{ "key": "Authorization", "value": "Bearer {{otherClientToken}}" }],
+            "description": "otherClientToken is client1; seedProject2Id (Lakeside Villas) is owned by client2. Must 404, not 403, to avoid leaking existence."
+          }
+        },
+        {
+          "name": "16. Duplicate email register (expect 409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () { pm.response.to.have.status(409); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Dup\", \"email\": \"{{registerEmail}}\", \"password\": \"password123\"}"
+            },
+            "description": "Assumes test 1 (Register) already ran and created registerEmail."
+          }
+        },
+        {
+          "name": "17. Duplicate engineer assignment (expect 409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', function () { pm.response.to.have.status(409); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/projects/{{seedProject2Id}}/assign-engineer",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"engineerId\": \"{{seedEngineer2Id}}\"}"
+            },
+            "description": "seedEngineer2Id (engineer2) is already assigned to seedProject2Id by the seed script."
+          }
+        }
+      ]
+    }
+  ]
+}

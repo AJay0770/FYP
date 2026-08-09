@@ -1,0 +1,275 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(CLIENT)
+  tokenVersion  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  createdProjects   Project[]          @relation("CreatedBy")
+  clientProjects    Project[]          @relation("ClientId")
+  assignedProjects  ProjectEngineer[]
+  siteUpdates       SiteUpdate[]
+  materialEntries   MaterialEntry[]
+  chatMessages      ChatMessage[]
+  subscription      Subscription?
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  ENGINEER
+  CLIENT
+}
+
+model Project {
+  id                      String   @id @default(uuid())
+  name                    String
+  gpsLat                  Float
+  gpsLng                  Float
+  address                 String
+  clientId                String
+  client                  User     @relation("ClientId", fields: [clientId], references: [id], onDelete: Cascade)
+  startDate               DateTime
+  expectedCompletionDate  DateTime
+  status                  ProjectStatus @default(PLANNING)
+  budgetEstimate          Decimal
+  createdById             String
+  createdBy               User     @relation("CreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relations
+  engineers       ProjectEngineer[]
+  updates         SiteUpdate[]
+  materials       MaterialEntry[]
+  cameras         Camera[]
+  chatMessages    ChatMessage[]
+  safetyAlerts    SafetyAlert[]
+  workers         Worker[]
+  attendanceRecs  AttendanceRecord[]
+  reports         Report[]
+
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+}
+
+model ProjectEngineer {
+  id          String @id @default(uuid())
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  engineerId  String
+  engineer    User   @relation(fields: [engineerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([projectId, engineerId])
+  @@map("project_engineers")
+}
+
+model SiteUpdate {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  engineerId String
+  engineer  User     @relation(fields: [engineerId], references: [id], onDelete: Cascade)
+  description String
+  mediaUrls String[] // Array of S3 URLs
+  mediaType MediaType @default(IMAGE)
+  createdAt DateTime @default(now())
+
+  @@map("site_updates")
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  MIXED
+}
+
+model MaterialEntry {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  category  String
+  entryType EntryType
+  quantity  Decimal
+  unitCost  Decimal
+  date      DateTime
+  loggedById String
+  loggedBy  User     @relation(fields: [loggedById], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("material_entries")
+}
+
+enum EntryType {
+  RECEIVED
+  CONSUMED
+}
+
+model Camera {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  zone      CameraZone
+  rtspUrl   String
+  status    CameraStatus @default(OFFLINE)
+  createdAt DateTime @default(now())
+
+  // Relations
+  safetyAlerts SafetyAlert[]
+
+  @@map("cameras")
+}
+
+enum CameraZone {
+  ENTRANCE
+  WORK_AREA
+  STORAGE
+}
+
+enum CameraStatus {
+  ONLINE
+  OFFLINE
+}
+
+model SafetyAlert {
+  id                String   @id @default(uuid())
+  projectId         String
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cameraId          String
+  camera            Camera   @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  violationType     ViolationType
+  confidenceScore   Decimal
+  frameImageUrl     String
+  createdAt         DateTime @default(now())
+
+  @@map("safety_alerts")
+}
+
+enum ViolationType {
+  NO_HELMET
+  NO_VEST
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content   String
+  fileUrl   String?
+  createdAt DateTime @default(now())
+
+  @@map("chat_messages")
+}
+
+model Worker {
+  id            String   @id @default(uuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name          String
+  employeeId    String
+  faceEmbedding String?  // JSON stringified array
+  enrolledAt    DateTime @default(now())
+
+  // Relations
+  attendanceRecords AttendanceRecord[]
+
+  @@map("workers")
+}
+
+model AttendanceRecord {
+  id              String   @id @default(uuid())
+  workerId        String
+  worker          Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  checkInTime     DateTime @default(now())
+  matchConfidence Decimal
+  date            DateTime @db.Date
+  createdAt       DateTime @default(now())
+
+  @@unique([workerId, date])
+  @@map("attendance_records")
+}
+
+model Subscription {
+  id                String   @id @default(uuid())
+  companyAdminId    String   @unique
+  companyAdmin      User     @relation(fields: [companyAdminId], references: [id], onDelete: Cascade)
+  plan              Plan
+  status            SubscriptionStatus @default(ACTIVE)
+  provider          PaymentProvider
+  providerReference String
+  startDate         DateTime @default(now())
+  nextBillingDate   DateTime
+  createdAt         DateTime @default(now())
+
+  @@map("subscriptions")
+}
+
+enum Plan {
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  EASYPAISA
+  JAZZCASH
+  STRIPE
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reportType  ReportType
+  pdfUrl      String
+  generatedAt DateTime @default(now())
+
+  @@map("reports")
+}
+
+enum ReportType {
+  DAILY
+  WEEKLY
+}
+
+// Placeholder model for DB connection verification
+model HealthCheck {
+  id        String   @id @default(uuid())
+  status    String   @default("ok")
+  checkedAt DateTime @default(now())
+
+  @@map("health_checks")
+}

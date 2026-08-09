@@ -1,0 +1,101 @@
+{
+  "id": "buildsite-env",
+  "name": "BuildSite E2E",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api",
+      "enabled": true
+    },
+    {
+      "key": "internalToken",
+      "value": "your-shared-internal-secret",
+      "enabled": true
+    },
+    {
+      "key": "adminToken",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3ODYzMDAzNzUsImV4cCI6MTc4NjM4Njc3NX0.WZNdLo0vxrCbCfFPIpq5D6xKREt7fjg1LolGOxBJHUw",
+      "enabled": true
+    },
+    {
+      "key": "engineer1Token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDIiLCJyb2xlIjoiRU5HSU5FRVIiLCJpYXQiOjE3ODYzMDAzNzUsImV4cCI6MTc4NjM4Njc3NX0.tRx_f2G2NWWN7mg3asMgD6_tocgcufXcFUbRuUkmSu8",
+      "enabled": true
+    },
+    {
+      "key": "engineer2Token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDMiLCJyb2xlIjoiRU5HSU5FRVIiLCJpYXQiOjE3ODYzMDAzNzUsImV4cCI6MTc4NjM4Njc3NX0.s-E4_liiPWN1KjkAFfiUohLH7783CxaycmlaStfO1v4",
+      "enabled": true
+    },
+    {
+      "key": "client1Token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDQiLCJyb2xlIjoiQ0xJRU5UIiwiaWF0IjoxNzg2MzAwMzc1LCJleHAiOjE3ODYzODY3NzV9.l0sZADSkBVfXLXi_DsCT0g8UxXPSGQtUoTtpWKEXBhk",
+      "enabled": true
+    },
+    {
+      "key": "client2Token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDUiLCJyb2xlIjoiQ0xJRU5UIiwiaWF0IjoxNzg2MzAwMzc1LCJleHAiOjE3ODYzODY3NzV9.H4WrRVmi5khBYP37d3eut3vozZYWJxMI1DHF4hhlwx0",
+      "enabled": true
+    },
+    {
+      "key": "expiredToken",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3ODYzMDAzNzUsImV4cCI6MTc4NjI5Njc3NX0.trUzu5uFXwBvE40Z-JL6wPC1OYHNQi5J1xRJvrX3J0g",
+      "enabled": true
+    },
+    {
+      "key": "admin",
+      "value": "00000000-0000-4000-8000-000000000001",
+      "enabled": true
+    },
+    {
+      "key": "engineer1",
+      "value": "00000000-0000-4000-8000-000000000002",
+      "enabled": true
+    },
+    {
+      "key": "engineer2",
+      "value": "00000000-0000-4000-8000-000000000003",
+      "enabled": true
+    },
+    {
+      "key": "client1",
+      "value": "00000000-0000-4000-8000-000000000004",
+      "enabled": true
+    },
+    {
+      "key": "client2",
+      "value": "00000000-0000-4000-8000-000000000005",
+      "enabled": true
+    },
+    {
+      "key": "project1",
+      "value": "00000000-0000-4000-8000-000000000101",
+      "enabled": true
+    },
+    {
+      "key": "project2",
+      "value": "00000000-0000-4000-8000-000000000102",
+      "enabled": true
+    },
+    {
+      "key": "cameraEntrance",
+      "value": "00000000-0000-4000-8000-000000000201",
+      "enabled": true
+    },
+    {
+      "key": "cameraWorkArea",
+      "value": "00000000-0000-4000-8000-000000000202",
+      "enabled": true
+    },
+    {
+      "key": "worker1",
+      "value": "00000000-0000-4000-8000-000000000301",
+      "enabled": true
+    },
+    {
+      "key": "subscription",
+      "value": "00000000-0000-4000-8000-000000000401",
+      "enabled": true
+    }
+  ]
+}
