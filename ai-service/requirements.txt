@@ -25,3 +25,10 @@ ultralytics==8.0.0
 # --- ArcFace facial recognition (Phase 7B) ---
 # Requires TensorFlow; Python 3.10/3.11 only.
 deepface==0.0.71
+
+# --- safety_stream.py / dataset tooling ---
+requests==2.31.0
+pyyaml==6.0.1
+
+# Optional: only needed by scripts/download_dataset.py --source roboflow
+# roboflow==1.1.27

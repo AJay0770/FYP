@@ -7,6 +7,7 @@ import SafetyAlertsPanel from '../components/SafetyAlertsPanel'
 import SiteUpdatesPanel from '../components/SiteUpdatesPanel'
 import MaterialsPanel from '../components/MaterialsPanel'
 import LiveMonitoringPage from './LiveMonitoringPage'
+import LiveMonitoring from './LiveMonitoring'
 import AttendancePage from './AttendancePage'
 import AnalyticsDashboard from './AnalyticsDashboard'
 import ReportsPage from './ReportsPage'
@@ -71,6 +72,7 @@ export default function ProjectDetailPage({ projectId, onBack }) {
 
       <AnalyticsDashboard projectId={projectId} />
       <LiveMonitoringPage projectId={projectId} />
+      <LiveMonitoring projectId={projectId} />
       <SafetyAlertsPanel projectId={projectId} />
       <SiteUpdatesPanel projectId={projectId} />
       <MaterialsPanel projectId={projectId} />

@@ -58,9 +58,16 @@ app.use('/api/projects/:id/reports', require('./routes/reports'));
 app.use('/api/cameras', require('./routes/cameraStream'));
 app.use('/api/cameras', require('./routes/cameraClips'));
 
+// AI safety detection: annotated stream + live detections. Mounted at /api so the
+// paths read /api/stream/safety and /api/detections/latest — these are about the
+// detector, not about one camera resource, and take ?cameraId= instead.
+const safetyDetection = require('./routes/safetyDetection');
+app.use('/api', safetyDetection.router);
+
 // Service-to-service endpoints (AI service -> API), guarded by X-Internal-Token.
 app.use('/api/internal', require('./routes/internal/safety'));
 app.use('/api/internal', require('./routes/internal/attendance'));
+app.use('/api/internal', safetyDetection.internalRouter);
 
 // Billing
 app.use('/api/billing', require('./routes/billing'));

@@ -1,0 +1,67 @@
+Read all documentation from the FYP project's verification folder (IMPLEMENTATION_SUMMARY.md, MISSING_COMPONENTS_QUICKSTART.md, CAMERA_SETUP_GUIDE.md, DATASET_ORGANIZATION_GUIDE.md, and all 4 Python scripts) and create the complete integration for BuildSite360 safety detection system. The project is 67% complete and needs: (1) Camera integration with RTSP/MJPEG streaming, (2) Dataset download and organization for YOLOv8 training, (3) Backend safety detection routes, (4) Frontend live monitoring with detection overlay, (5) Python safety_stream service, (6) Complete setup and testing documentation.
+
+DELIVERABLES:
+
+1. PROJECT STRUCTURE:
+   - Create ai-service/data/datasets/{raw,organized}
+   - Create ai-service/models/
+   - Organize all verification scripts in ai-service/
+
+2. BACKEND CODE (backend/routes/safety-detection.js):
+   - GET /stream/safety endpoint: MJPEG stream with YOLOv8 detection boxes
+   - GET /detections/latest: JSON endpoint with current detections and alerts
+   - Integration with Socket.io for real-time alerts
+   - Support multiple camera types (HTTP, RTSP, file, /dev/video*, device ID)
+
+3. FRONTEND COMPONENT (frontend/src/pages/LiveMonitoring.jsx):
+   - Display live MJPEG stream
+   - Show detection boxes (color-coded: green=safe, red=hazard)
+   - Display detection stats (hardhat, construction_worker, ppe, no_ppe)
+   - Show real-time safety alerts
+
+4. PYTHON SERVICE (ai-service/safety_stream.py):
+   - Load YOLOv8 model from ai-service/models/best.pt
+   - Read camera feed from CAMERA_SOURCE env var
+   - Run inference and draw boxes
+   - Stream as MJPEG with proper encoding
+
+5. ENVIRONMENT CONFIGURATION (.env.local):
+   CAMERA_TYPE=android_ip
+   CAMERA_SOURCE=http://192.168.1.100:8080/video
+   STREAM_FORMAT=mjpeg
+   STREAM_PORT=8554
+   SAFETY_CONFIDENCE_THRESHOLD=0.5
+   ATTENDANCE_DISTANCE_THRESHOLD=0.65
+   ROBOFLOW_API_KEY=(optional)
+
+6. SETUP & DOCUMENTATION:
+   - SETUP_INSTRUCTIONS.md: Step-by-step commands for camera, datasets, training
+   - QUICK_REFERENCE.md: Copy-paste commands for each phase
+   - TROUBLESHOOTING.md: Common issues and solutions
+   - Copy all 4 Python scripts from verification folder to ai-service/
+
+7. TESTING FRAMEWORK (test_integration.py):
+   - Test camera connectivity
+   - Test dataset structure
+   - Test model loading
+   - Test YOLOv8 inference
+   - Generate verification report
+
+SPECIFICATIONS:
+- Model path: ai-service/models/best.pt
+- Classes: [hardhat, construction_worker, ppe, no_ppe]
+- Database: 14 Prisma models already defined
+- Frontend: React 18 with Recharts
+- Backend: Express.js 4 with Socket.io
+- Python service: FastAPI/OpenCV
+- Streaming: MJPEG primary, HLS secondary
+- Real-time: WebSocket alerts to frontend
+- Logging: Detection events saved to database
+
+OUTPUT FOR EACH FILE:
+- File path and purpose
+- Complete, executable code
+- Integration points with existing system
+- Error handling and logging
+
+TARGET OUTCOME: Production-ready safety detection system with camera integration, automated dataset handling, and real-time alerts. All code tested and documented.
