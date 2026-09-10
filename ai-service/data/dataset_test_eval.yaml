@@ -1,0 +1,13 @@
+# Eval-only config: ultralytics 8.0.0's validator hardcodes use of the "val"
+# key (engine/validator.py has no `split=` CLI arg, that was added later), so
+# to score against the true held-out test split we point "val" at the test
+# images here rather than at the real validation set used during training.
+# Not used for training -- see dataset.yaml for that.
+path: C:/Projects/FYP/Dataset
+train: images/train
+val: images/test
+
+names:
+  0: helmet
+  1: vest
+  2: head

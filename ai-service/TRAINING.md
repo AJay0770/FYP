@@ -2,55 +2,80 @@
 
 Covers the two AI components: YOLOv8 PPE detection and ArcFace facial recognition.
 
-> **Status: code complete, results not yet recorded.**
+> **Status: Part A (YOLOv8 PPE detection) trained and measured 2026-09-10. Part B
+> (ArcFace) still has no results — see its section below.**
 >
-> Every table below marked `NOT YET MEASURED` is waiting on a training/validation run
-> that has not happened yet. Those runs need credentials and data that aren't in this
-> repo (see [Blockers](#blockers)). **Do not fill these in with numbers from a paper,
-> a blog post, or another project's results** — the entire purpose of this file is to
-> record what *this* model achieved on *this* data. Unverified numbers here would be
-> worse than no numbers, because downstream safety and attendance decisions get made
-> on the assumption these were measured.
+> Tables still marked `NOT YET MEASURED` are waiting on a run that has not happened
+> yet. **Do not fill these in with numbers from a paper, a blog post, or another
+> project's results** — the entire purpose of this file is to record what *this*
+> model achieved on *this* data. Unverified numbers here would be worse than no
+> numbers, because downstream safety and attendance decisions get made on the
+> assumption these were measured.
 
 ---
 
 ## Part A — YOLOv8 PPE Detection
 
-Detects two classes: `helmet` and `vest`.
+Detects three classes: `helmet`, `vest`, `head`. (Originally scoped as two classes,
+`helmet`/`vest` — see "Why three classes, not two" below for why `head` was kept.)
 
 ### Pipeline
 
 | Stage | Where |
 |---|---|
-| Training | [`notebooks/yolov8_training.ipynb`](notebooks/yolov8_training.ipynb) (Google Colab, GPU runtime) |
+| Training | `scripts/validate_dataset.py` (pre-flight check) then the `yolo` CLI directly — see [Training run log](#training-run-log) below. `notebooks/yolov8_training.ipynb` was the originally planned path but wasn't used for this run. |
+| Class-mapping sanity check | [`scripts/inspect_classes.py`](scripts/inspect_classes.py) — draws ground-truth boxes per raw class id onto sample images so a human confirms what each id actually depicts, before spending GPU time training on a possibly-wrong mapping |
+| Resume after interruption | [`scripts/resume_training.py`](scripts/resume_training.py) — see [Interruption and resume](#interruption-and-resume) |
 | Inference test | [`scripts/test_yolov8.py`](scripts/test_yolov8.py) |
-| Trained weights | `models/best.pt` — **not yet produced** |
+| Trained weights | `models/best.pt` — **produced, ~21.5 MB** |
 
 ### Dataset sources
 
 | Field | Value |
 |---|---|
-| Primary source | Roboflow Universe, construction-site PPE dataset (exact workspace/project/version set in notebook cell 3) |
-| Train / val / test counts | `NOT YET RECORDED` — the notebook prints these |
-| Original class list | `NOT YET RECORDED` — varies by dataset; notebook prints it |
-| Classes after remap | `helmet`, `vest` |
+| Location | `C:\Projects\FYP\Dataset` (pre-split YOLO format; not copied into `ai-service/data/` — 22k images, kept in place to avoid doubling disk usage) |
+| Train / val / test counts | 17,248 / 2,438 / 2,455 images |
+| Raw class ids in the label files | `0`, `1`, `2` (a 4th name, `person`, is listed in `labels/classes.txt` but has zero instances anywhere in this dataset) |
+| Classes used for training | `0: helmet`, `1: vest`, `2: head` |
+
+### Why three classes, not two
+
+This dataset was not produced by the notebook's Roboflow/`CLASS_MAP` remap pipeline
+described above — it's a separate, pre-organized 22k-image set that still carries its
+original 3-class labeling. Before trusting `labels/classes.txt`'s stated order, each
+class id was visually verified with `scripts/inspect_classes.py` (ground-truth boxes
+drawn on real sample images, not inferred from box-size statistics alone) — this
+confirmed **class 2 ("head") is a bare head with no helmet on it**, i.e. it is already
+an explicit negative signal for the `NO_HELMET` violation, not a fourth unrelated
+concept. That directly resolves half of the ambiguity flagged elsewhere in this
+codebase (`services/safety_detector.py`'s docstring, option "retrain with explicit
+negative classes"): a `head` detection on its own can be read as a helmet violation
+without needing person-containment logic. The same is not yet true for vests — there is
+no explicit `no-vest`/bare-torso class in this data, so inferring a vest violation still
+needs a `person` class this dataset doesn't have populated. Training on all three
+available classes uses strictly more of the labeled signal than artificially discarding
+`head` to force the originally-planned two-class model, and was the deliberate choice
+here given the goal was best achievable accuracy.
 
 Public PPE datasets typically ship more than two classes (`helmet`, `no-helmet`, `head`,
-`person`, `vest`, ...). The notebook remaps them down to the two this project needs via
-`CLASS_MAP` and drops the rest. **Verify the printed class list matches your `CLASS_MAP`
-before training** — a silent mismatch there produces a model that trains happily and
-detects the wrong things.
+`person`, `vest`, ...). **Whatever the source, verify the printed/visually-checked class
+list actually matches what you assume before training** — a silent mismatch there
+produces a model that trains happily and detects the wrong things.
 
 ### Training parameters
 
-Set in the notebook; recorded here so the run is reproducible.
+As originally specified below, with one change: **batch 4, not 16.** This ran on a
+local RTX 3070 (8GB VRAM), not the 16GB T4 the original guidance assumed. Batch 8 was
+tried first and looked fine initially, but GPU memory climbed steadily over ~600
+iterations until the CUDA allocator started thrashing (iteration time went from ~0.35s
+to 30s+). Batch 4 stayed flat at ~5.6-6GB for the full run.
 
 | Parameter | Value | Why |
 |---|---|---|
 | Base weights | `yolov8s.pt` (COCO-pretrained) | |
 | Epochs | 100 (early stop, patience 20) | |
 | Image size | 640 | |
-| Batch | 16 | Fits a 16GB T4; reduce to 8 on a 6GB card |
+| Batch | **4** (not 16 — see above) | Fits a 16GB T4; reduce to 8 on a 6GB card; reduce further on 8GB if memory climbs during the run |
 | Optimizer | AdamW | |
 | `lr0` / `lrf` | 0.001 / 0.01 | cosine decay to lr0×lrf |
 | Warmup | 3 epochs | |
@@ -74,27 +99,81 @@ Augmentation, chosen for outdoor/dusty site conditions:
 
 ### Results
 
+Measured 2026-09-10 with `yolo task=detect mode=val model=models/best.pt` against the
+**test** split (2,455 images, held out from both training and the val-based checkpoint
+selection during training). Ultralytics 8.0.0's validator has no `split=` CLI flag, so
+this used a second config (`data/dataset_test_eval.yaml`) that points its `val:` key at
+the test images — training itself used the real `data/dataset.yaml`.
+
 | Metric | Value |
 |---|---|
-| mAP@0.5 | `NOT YET MEASURED` |
-| mAP@0.5:0.95 | `NOT YET MEASURED` |
-| Precision | `NOT YET MEASURED` |
-| Recall | `NOT YET MEASURED` |
-| helmet mAP@0.5 | `NOT YET MEASURED` |
-| vest mAP@0.5 | `NOT YET MEASURED` |
+| mAP@0.5 | 0.891 |
+| mAP@0.5:0.95 | 0.522 |
+| Precision | 0.876 |
+| Recall | 0.846 |
+| helmet mAP@0.5 | 0.908 |
+| vest mAP@0.5 | 0.862 |
+| head mAP@0.5 | 0.905 |
 
-Notebook section 5 prints all of these on the held-out test split. Copy them here verbatim.
+Per-class precision/recall, for reference:
+
+| Class | Precision | Recall | mAP@0.5 | mAP@0.5:0.95 |
+|---|---|---|---|---|
+| helmet | 0.917 | 0.851 | 0.908 | 0.577 |
+| vest | 0.824 | 0.789 | 0.862 | 0.512 |
+| head | 0.889 | 0.898 | 0.905 | 0.477 |
+
+`best.pt` is the checkpoint from **epoch 46**, not the final epoch — see below.
+
+### Interruption and resume
+
+This run was interrupted (unattended machine, no UPS, likely a power outage) after
+completing epoch 46 of 100, with metrics already strong at that point (val mAP@0.5
+0.884, recall 0.847). `scripts/resume_training.py` was written specifically to make
+recovering from exactly this kind of interruption a single command rather than a
+restart from scratch — see its docstring for the two real bugs in this pinned
+`ultralytics==8.0.0` it has to work around (a bare `resume=<path>` silently discards
+every other CLI override, and `Model.train()` derives the resume checkpoint from
+whatever `model=` you pass, so replaying the original `model=yolov8s.pt` redirects the
+resume lookup to the wrong file).
+
+The resume itself succeeded mechanically — training correctly continued from epoch 47
+using the checkpoint's weights, optimizer state, and epoch count — but something in
+this version's LR-schedule continuation caused a training collapse right at the resume
+boundary: val mAP@0.5 dropped from 0.884 (epoch 44) to essentially zero (0.0002) by
+epoch 49, and only partially recovered by epoch 99 (mAP@0.5 0.663), never regaining
+epoch 46's level. **This is a plausible bug in ultralytics 8.0.0's resume path, not
+something this project's config caused** — but it was not root-caused further here.
+
+None of this reached the deployed model: Ultralytics tracks `best_fitness` across
+resume (loaded from the checkpoint), so `best.pt` was never overwritten by the
+post-collapse, worse-performing epochs and still holds the epoch-46 weights. This was
+confirmed by directly validating `best.pt` (not assumed from file metadata) — the
+Results table above is that validation. `last.pt` (epoch 99) is the degraded model and
+should not be used.
+
+**Practical takeaway for next time**: if this pipeline is ever interrupted and resumed
+again on this ultralytics version, validate `best.pt` against the test set immediately
+after the resumed run finishes, rather than assuming the final epoch is the best one.
 
 ### Sample inference results
 
-`NOT YET RUN` — needs `models/best.pt` plus images in `data/test_images/`.
+Run 2026-09-10 against 7 real images from the test split (`data/test_images/`):
 
 ```bash
-python scripts/test_yolov8.py --conf 0.35
+python scripts/test_yolov8.py --model models/best.pt --conf 0.35
 ```
 
-Writes annotated images to `data/output/` and prints per-detection class, confidence,
-and box coordinates.
+31 detections across 7 images, all visually correct on inspection (tight boxes,
+correct class per object — helmets on hard-hatted heads, `head` on bare heads, `vest`
+on hi-vis torsos). Annotated images written to `data/output/`.
+
+Note: `scripts/test_yolov8.py` needed a fix to run at all under `ultralytics==8.0.0` —
+this version predates the `Results`/`Boxes` object model (no `result.boxes`,
+`result.names`, `result.save()`); `predict()` here returns a plain list of `[N, 6]`
+tensors (`x1, y1, x2, y2, conf, cls`) per image, and class names live on
+`model.model.names`, not on the `YOLO` wrapper. The script now handles that directly
+with OpenCV instead of the newer Results API.
 
 ### A note on expected file size
 

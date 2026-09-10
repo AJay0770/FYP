@@ -323,7 +323,11 @@ def check_model(suite: Suite) -> Result:
         return Result("model loading", FAIL, "ultralytics is not installed (pip install ultralytics)")
 
     model = YOLO(str(MODEL_PATH))
-    names = list((getattr(model, "names", {}) or {}).values())
+    # ultralytics==8.0.0 (pinned in requirements.txt) has no `.names` on the YOLO
+    # wrapper itself -- only on the underlying nn.Module. Try the newer location
+    # first so this keeps working if the pin is ever upgraded.
+    names_map = getattr(model, "names", None) or getattr(model.model, "names", {}) or {}
+    names = list(names_map.values())
     suite.context["model"] = model
 
     normalised = [str(n).strip().lower() for n in names]
@@ -370,22 +374,34 @@ def check_inference(suite: Suite) -> Result:
     if frame is None:
         frame = np.full((640, 640, 3), 127, dtype=np.uint8)
 
-    threshold = float(os.getenv("SAFETY_CONFIDENCE_THRESHOLD", "0.5"))
-    started = time.time()
-    results = model.predict(source=frame, conf=threshold, verbose=False)[0]
-    elapsed_ms = int((time.time() - started) * 1000)
-
-    detections = []
-    for box in results.boxes:
-        detections.append({
-            "label": str(results.names[int(box.cls)]).lower(),
-            "confidence": round(float(box.conf), 3),
-        })
-
-    # Save an annotated copy so the run leaves visual evidence behind.
+    # ultralytics==8.0.0's predictor does `str(source or self.args.source)` --
+    # a raw ndarray's truthiness is ambiguous (ValueError: "truth value of an
+    # array with more than one element..."), so this version only accepts a
+    # file path for `source=`, not an in-memory frame. Write it out first.
     output = SERVICE_ROOT / "data" / "output" / "inference_check.jpg"
     output.parent.mkdir(parents=True, exist_ok=True)
-    cv2.imwrite(str(output), results.plot())
+    input_path = SERVICE_ROOT / "data" / "output" / "_inference_check_input.jpg"
+    cv2.imwrite(str(input_path), frame)
+
+    threshold = float(os.getenv("SAFETY_CONFIDENCE_THRESHOLD", "0.5"))
+    names_map = getattr(model, "names", None) or getattr(model.model, "names", {}) or {}
+    started = time.time()
+    detected = model.predict(source=str(input_path), conf=threshold, verbose=False)[0]
+    elapsed_ms = int((time.time() - started) * 1000)
+
+    # Same version gap as model loading: predict() here returns a plain
+    # [N, 6] tensor (x1, y1, x2, y2, conf, cls) per image, not a Results
+    # object with .boxes/.names/.plot() (those don't exist in this version).
+    detections = []
+    for x1, y1, x2, y2, confidence, cls_id in detected.tolist():
+        detections.append({
+            "label": str(names_map.get(int(cls_id), int(cls_id))).lower(),
+            "confidence": round(float(confidence), 3),
+        })
+        cv2.rectangle(frame, (round(x1), round(y1)), (round(x2), round(y2)), (0, 255, 0), 2)
+
+    # Save an annotated copy so the run leaves visual evidence behind.
+    cv2.imwrite(str(output), frame)
 
     message = f"{len(detections)} detection(s) in {elapsed_ms} ms on {Path(used).name}"
     if used == "synthetic":

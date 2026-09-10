@@ -1,0 +1,24 @@
+# YOLO dataset config for BuildSite 360 PPE detection.
+#
+# Points at C:\Projects\FYP\Dataset directly rather than copying it under
+# ai-service\data\ -- the source set is ~22k images; duplicating it would burn
+# disk on a drive that already has limited free space, for no training benefit
+# (Ultralytics reads images by path, it doesn't need them colocated with configs).
+#
+# Class ids 0/1/2 verified visually against real images before training, not
+# assumed from labels/classes.txt alone -- see ai-service/scripts/inspect_classes.py
+# and TRAINING.md's warning about silent class-id mismatches. Class 2 ("head")
+# is a bare head with no helmet -- i.e. it's already the negative/violation
+# signal for NO_HELMET, not a fourth unrelated concept. "person" (present in
+# classes.txt) has zero labeled instances anywhere in this dataset and is
+# omitted here.
+
+path: C:/Projects/FYP/Dataset
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: helmet
+  1: vest
+  2: head

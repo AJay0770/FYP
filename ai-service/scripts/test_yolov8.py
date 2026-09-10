@@ -9,6 +9,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import cv2
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
@@ -38,24 +40,35 @@ def main():
     from ultralytics import YOLO
 
     model = YOLO(str(args.model))
+    # This pinned ultralytics==8.0.0 predates the Results/Boxes object model
+    # (no `result.boxes`, `result.names`, `result.save()`) -- predict() here
+    # returns a plain list of [N, 6] tensors (x1, y1, x2, y2, conf, cls) in
+    # absolute pixel coords, one per image, and class names live on the
+    # underlying nn.Module (model.model.names), not on the YOLO wrapper.
+    names = model.model.names
     args.output.mkdir(parents=True, exist_ok=True)
 
     total_detections = 0
 
     for image_path in images:
-        result = model.predict(source=str(image_path), conf=args.conf, verbose=False)[0]
+        detections = model.predict(source=str(image_path), conf=args.conf, verbose=False)[0]
 
         print(f"\n{image_path.name}")
-        if len(result.boxes) == 0:
+        if len(detections) == 0:
             print("  no detections")
-        for box in result.boxes:
-            label = result.names[int(box.cls)]
-            confidence = float(box.conf)
-            x1, y1, x2, y2 = (round(v) for v in box.xyxy[0].tolist())
+
+        image = cv2.imread(str(image_path))
+        for x1, y1, x2, y2, confidence, cls_id in detections.tolist():
+            label = names[int(cls_id)]
+            x1, y1, x2, y2 = round(x1), round(y1), round(x2), round(y2)
             print(f"  {label:8s} conf={confidence:.3f}  box=({x1}, {y1}, {x2}, {y2})")
             total_detections += 1
 
-        result.save(filename=str(args.output / image_path.name))
+            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(image, f"{label} {confidence:.2f}", (x1, max(0, y1 - 5)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+        cv2.imwrite(str(args.output / image_path.name), image)
 
     print(f"\n{len(images)} image(s), {total_detections} detection(s).")
     print(f"Annotated images written to {args.output}")

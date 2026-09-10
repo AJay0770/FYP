@@ -119,3 +119,26 @@ curl http://localhost:8000/health
 # Client
 Open http://localhost:5173 in browser
 ```
+# Git Workflow
+
+- Never push directly to main/master.
+- Never force push.
+- Never reset or discard user changes without explicit permission.
+- Always work on a feature/fix branch.
+- Before committing, inspect git diff and git status.
+- Run relevant tests before committing.
+- Do not create a commit unless requested or explicitly authorized by the user.
+- Before pushing, show the user what will be pushed.
+- Pull requests should target the team's designated development branch.
+
+## Push Safety
+
+Before running `git push`:
+
+1. Show the current branch.
+2. Show git status.
+3. Show the commits that will be pushed.
+4. Confirm that the destination is not main/master.
+5. Ask the user for confirmation before pushing.
+
+Never push automatically.
