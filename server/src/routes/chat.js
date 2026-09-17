@@ -25,7 +25,10 @@ router.get('/history', authenticateToken, async (req, res) => {
       where: { projectId },
       orderBy: { createdAt: 'desc' },
       take: 100,
-      include: { sender: { select: { id: true, name: true, role: true } } },
+      include: {
+        sender: { select: { id: true, name: true, role: true } },
+        mediaAsset: { select: { id: true, type: true, caption: true } },
+      },
     });
 
     res.json(recent.reverse());

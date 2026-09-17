@@ -14,9 +14,15 @@ const CLIP_SECONDS = 30;
 // Capture is 30s; allow generous headroom for connect + encode before giving up.
 const CAPTURE_TIMEOUT_MS = (CLIP_SECONDS + 30) * 1000;
 
-function captureClip(rtspUrl, outputPath) {
+function captureClip(rtspUrl, outputPath, cameraId) {
+  let ffmpeg;
+  try {
+    ffmpeg = spawnClipCapture(rtspUrl, outputPath, { durationSeconds: CLIP_SECONDS, cameraId });
+  } catch (err) {
+    throw Object.assign(new Error(err.message), { statusCode: 502 });
+  }
+
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawnClipCapture(rtspUrl, outputPath, { durationSeconds: CLIP_SECONDS });
     let stderr = '';
 
     const timer = setTimeout(() => {
@@ -63,7 +69,7 @@ router.post('/:id/record-clip', authenticateToken, async (req, res) => {
 
     tempPath = path.join(os.tmpdir(), `clip-${crypto.randomUUID()}.mp4`);
 
-    await captureClip(camera.rtspUrl, tempPath);
+    await captureClip(camera.rtspUrl, tempPath, camera.id);
 
     const buffer = await fs.readFile(tempPath);
     if (buffer.length === 0) {
@@ -75,6 +81,23 @@ router.post('/:id/record-clip', authenticateToken, async (req, res) => {
     const { url } = await uploadBuffer(buffer, `${safeName}-clip.mp4`, 'video/mp4');
 
     await prisma.camera.update({ where: { id: cameraId }, data: { status: 'ONLINE' } });
+
+    // Land it in the project's Media tab automatically - a recorded clip is
+    // useless if the only place its URL exists is this one-off API response.
+    // Not fatal if it fails: the clip is already safely uploaded either way.
+    await prisma.mediaAsset
+      .create({
+        data: {
+          projectId: camera.projectId,
+          cameraId: camera.id,
+          type: 'VIDEO',
+          source: 'CLIP_RECORDING',
+          url,
+          caption: `${camera.name} - ${CLIP_SECONDS}s clip`,
+          uploadedById: req.user.userId,
+        },
+      })
+      .catch((err) => console.error('Failed to record clip in media library:', err.message));
 
     res.status(201).json({
       clipUrl: url,

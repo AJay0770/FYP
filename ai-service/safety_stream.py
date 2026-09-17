@@ -125,35 +125,87 @@ INTERNAL_TOKEN = os.getenv("X_INTERNAL_TOKEN")
 # `or None` matters: .env.local ships SAFETY_CAMERA_ID= blank, and an empty
 # string would read as "configured" and be sent as a camera id the API rejects.
 DEFAULT_CAMERA_ID = os.getenv("SAFETY_CAMERA_ID") or None  # optional: alert attribution
-ALERT_COOLDOWN_SECONDS = float(os.getenv("ALERT_COOLDOWN_SECONDS", "60"))
+# 15 minutes, not the old 60s: a violation is now attributed to a specific
+# enrolled worker (see "Per-worker face matching" below), so the cooldown is
+# keyed per worker+violation type, not per camera - the same worker standing
+# in frame bare-headed for an extended period shouldn't re-alert every minute.
+ALERT_COOLDOWN_SECONDS = float(os.getenv("ALERT_COOLDOWN_SECONDS", str(15 * 60)))
+
+# --------------------------------------------------------------------------
+# Per-worker face matching
+# --------------------------------------------------------------------------
+#
+# Only an enrolled worker can ever be reported as a violation (a bare head on
+# someone who isn't an enrolled worker - a visitor, someone not yet enrolled -
+# is shown on the annotated feed for situational awareness but never alerted
+# or counted as a hazard). This means every hazard detection needs a face
+# match against that camera's project's enrolled workers before it can become
+# an alert, using the same ArcFace/cosine-similarity approach already used for
+# attendance (see services/attendance_detector.py) - reused here rather than
+# reinvented, including the same threshold-is-a-similarity-not-a-distance
+# caveat documented in scripts/match_face.py.
+FACE_MATCH_THRESHOLD = float(os.getenv("FACE_MATCH_THRESHOLD", "0.68"))
+FACE_MATCH_MODEL = "ArcFace"
+# "opencv", not "retinaface": retinaface crashes outright in this project's
+# actual installed combo (deepface==0.0.71 + retina-face==0.0.18 + TF 2.15) -
+# see ai-service/endpoints/enrollment.py for the full explanation.
+FACE_MATCH_DETECTOR_BACKEND = "opencv"
+# How often to re-fetch a camera's enrolled-worker list. Long enough that
+# matching a violation doesn't cost a Node round-trip every time, short enough
+# that a worker enrolled mid-shift is usable without restarting this service.
+WORKER_CACHE_TTL_SECONDS = float(os.getenv("WORKER_CACHE_TTL_SECONDS", "300"))
 
 OPEN_RETRY_SECONDS = float(os.getenv("CAMERA_RETRY_SECONDS", "5"))
 IDLE_SHUTDOWN_SECONDS = float(os.getenv("CAMERA_IDLE_SHUTDOWN_SECONDS", "120"))
 MAX_CONSECUTIVE_READ_FAILURES = 30
 MAX_WORKERS = int(os.getenv("MAX_CAMERA_WORKERS", "8"))
 
-# The four classes the fine-tuned model is trained on. `no_ppe` is the only
-# hazard class: everything else is evidence that protective equipment IS present.
-CLASS_NAMES = ["hardhat", "construction_worker", "ppe", "no_ppe"]
-HAZARD_CLASSES = {"no_ppe", "no-ppe", "noppe", "no_helmet", "no-helmet", "no_vest", "no-vest"}
+# Fallback only, used before the model has loaded (or if it fails to load) so
+# /health and /detections/latest still have *some* class list to report. Once
+# a model is loaded, `get_class_names()` reads its real classes instead - see
+# below. The trained model (ai-service/TRAINING.md) actually has 3 classes:
+# `helmet`, `vest` (PPE present) and `head` (a bare head with no helmet - this
+# IS the NO_HELMET violation signal, not a fourth unrelated concept). This
+# constant intentionally reflects that real model rather than the originally
+# planned 4-class hardhat/construction_worker/ppe/no_ppe scheme, which this
+# project never actually trained.
+CLASS_NAMES = ["helmet", "vest", "head"]
+
+# `head` (bare head, no helmet) is this model's actual hazard signal. The
+# no_ppe/no_helmet/no_vest spellings are kept too in case a future retrain
+# adds explicit negative classes per TRAINING.md's other documented option.
+HAZARD_CLASSES = {
+    "head", "no_ppe", "no-ppe", "noppe", "no_helmet", "no-helmet", "no_vest", "no-vest",
+}
 
 # BGR - OpenCV channel order, not RGB.
 COLOR_SAFE = (76, 175, 80)      # green  - PPE present
-COLOR_HAZARD = (54, 67, 244)    # red    - PPE missing
+COLOR_HAZARD = (54, 67, 244)    # red    - PPE missing, attributed to an enrolled worker
 COLOR_PERSON = (219, 152, 52)   # blue   - a worker, neither safe nor hazardous alone
+COLOR_UNIDENTIFIED = (33, 165, 245)  # amber - a bare head that isn't an enrolled worker
 CLASS_COLORS = {
+    "helmet": COLOR_SAFE,
+    "vest": COLOR_SAFE,
+    "head": COLOR_HAZARD,
+    # Kept for a future retrain with the originally planned classes.
     "hardhat": COLOR_SAFE,
     "ppe": COLOR_SAFE,
     "construction_worker": COLOR_PERSON,
     "no_ppe": COLOR_HAZARD,
 }
 
-# The Prisma `ViolationType` enum only has NO_HELMET and NO_VEST, so the model
-# `no_ppe` class has to be mapped onto one of them before the API will accept it.
-# Override with NO_PPE_VIOLATION_TYPE, or add a NO_PPE value to the enum and run a
-# migration - see SETUP_INSTRUCTIONS.md.
+# The Prisma `ViolationType` enum only has NO_HELMET and NO_VEST, so a model
+# class has to be mapped onto one of them before the API will accept it.
+# `head` (bare head, no helmet) maps directly to NO_HELMET - it's a genuine
+# violation detection, not a heuristic. There is no equivalent for vests: this
+# dataset has no explicit "bare torso / no vest" class, so a NO_VEST alert
+# cannot be produced from this model alone (would need person-detection +
+# containment logic - see safety_detector.py's docstring and TRAINING.md).
+# Override the no_ppe fallback with NO_PPE_VIOLATION_TYPE, or add a NO_PPE
+# value to the enum and run a migration - see SETUP_INSTRUCTIONS.md.
 NO_PPE_VIOLATION_TYPE = os.getenv("NO_PPE_VIOLATION_TYPE", "NO_HELMET")
 VIOLATION_TYPE_MAP = {
+    "head": "NO_HELMET",
     "no_ppe": NO_PPE_VIOLATION_TYPE,
     "no-ppe": NO_PPE_VIOLATION_TYPE,
     "no_helmet": "NO_HELMET",
@@ -203,14 +255,134 @@ def load_model(model_path: Path = MODEL_PATH):
             from ultralytics import YOLO
 
             _model = YOLO(str(model_path))
-            names = getattr(_model, "names", {}) or {}
-            log.info("Loaded YOLOv8 model %s (classes: %s)", model_path, list(names.values()))
+            log.info("Loaded YOLOv8 model %s (classes: %s)", model_path, list(get_class_names().values()))
         except Exception as exc:  # pragma: no cover - depends on local install
             _model_error = f"{type(exc).__name__}: {exc}"
             log.exception("Failed to load model at %s", model_path)
             return None
 
         return _model
+
+
+def get_class_names() -> dict[int, str]:
+    """The loaded model's real class id -> name map, falling back to CLASS_NAMES.
+
+    ultralytics==8.0.0 (pinned in requirements.txt) has no `.names` on the YOLO
+    wrapper itself - only on the underlying nn.Module (`model.model.names`).
+    Checking the wrapper first keeps this working if that pin is ever upgraded.
+    """
+    if _model is not None:
+        names = getattr(_model, "names", None) or getattr(_model.model, "names", None)
+        if names:
+            return names
+    return dict(enumerate(CLASS_NAMES))
+
+
+# --------------------------------------------------------------------------
+# Enrolled-worker cache + face matching
+# --------------------------------------------------------------------------
+
+# camera_id -> {"fetched_at": float, "ids": [...], "names": [...], "vectors": np.ndarray}
+_worker_cache: dict[str, dict] = {}
+_worker_cache_lock = threading.Lock()
+
+
+def _fetch_enrolled_workers(camera_id: str) -> dict:
+    """Fetch and L2-normalise enrolled-worker embeddings for camera_id's project.
+
+    Node resolves camera -> project server-side (GET /api/internal/workers
+    accepts cameraId directly) - this service never needs its own database
+    access or to know which project a camera belongs to.
+    """
+    import numpy as np
+
+    try:
+        response = requests.get(
+            f"{NODE_API_URL}/api/internal/workers",
+            params={"cameraId": camera_id},
+            headers={"X-Internal-Token": INTERNAL_TOKEN},
+            timeout=10,
+        )
+        response.raise_for_status()
+        workers = response.json()
+    except requests.RequestException as exc:
+        log.error("Failed to fetch enrolled workers for camera %s: %s", camera_id, exc)
+        workers = []
+
+    ids, names, vectors = [], [], []
+    for worker in workers:
+        embedding = worker.get("faceEmbedding")
+        if not embedding:
+            continue
+        vector = np.array(embedding, dtype=np.float64)
+        norm = np.linalg.norm(vector)
+        if norm == 0:
+            continue
+        ids.append(worker["id"])
+        names.append(worker.get("name", "Unknown"))
+        vectors.append(vector / norm)
+
+    return {
+        "fetched_at": time.time(),
+        "ids": ids,
+        "names": names,
+        "vectors": np.vstack(vectors) if vectors else None,
+    }
+
+
+def _get_enrolled_workers(camera_id: str) -> dict:
+    with _worker_cache_lock:
+        cached = _worker_cache.get(camera_id)
+        if cached and (time.time() - cached["fetched_at"]) < WORKER_CACHE_TTL_SECONDS:
+            return cached
+
+    fresh = _fetch_enrolled_workers(camera_id)
+    with _worker_cache_lock:
+        _worker_cache[camera_id] = fresh
+    return fresh
+
+
+def match_enrolled_worker(face_crop, camera_id: str | None) -> tuple[str | None, str | None, float]:
+    """Return (worker_id, worker_name, similarity) for the best enrolled match,
+    or (None, None, 0.0) if no enrolled worker matches (or none are enrolled,
+    or camera_id is unknown - a face can't be attributed to a project's
+    workers without knowing which project it belongs to).
+    """
+    import numpy as np
+
+    if not camera_id:
+        return None, None, 0.0
+
+    cache = _get_enrolled_workers(camera_id)
+    if cache["vectors"] is None:
+        return None, None, 0.0
+
+    try:
+        from deepface import DeepFace
+
+        embedding = DeepFace.represent(
+            img_path=face_crop,
+            model_name=FACE_MATCH_MODEL,
+            detector_backend=FACE_MATCH_DETECTOR_BACKEND,
+            enforce_detection=True,
+        )
+    except ValueError:
+        return None, None, 0.0  # no face in the crop
+    except Exception:
+        log.exception("Face matching failed on a violation crop; treating as unmatched")
+        return None, None, 0.0
+
+    probe = np.array(embedding, dtype=np.float64)
+    probe /= np.linalg.norm(probe)
+
+    similarities = cache["vectors"] @ probe
+    best_index = int(np.argmax(similarities))
+    best_score = float(similarities[best_index])
+
+    if best_score < FACE_MATCH_THRESHOLD:
+        return None, None, best_score
+
+    return cache["ids"][best_index], cache["names"][best_index], best_score
 
 
 # --------------------------------------------------------------------------
@@ -262,6 +434,8 @@ class Detection:
     confidence: float
     box: list[int]          # [x1, y1, x2, y2] in frame pixels
     hazard: bool
+    worker_id: str | None = None
+    worker_name: str | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -269,6 +443,8 @@ class Detection:
             "confidence": round(self.confidence, 4),
             "box": self.box,
             "hazard": self.hazard,
+            "workerId": self.worker_id,
+            "workerName": self.worker_name,
         }
 
 
@@ -312,6 +488,13 @@ class CameraWorker:
         self.state = WorkerState()
         self.started_at = time.time()
         self.last_viewer_at = time.time()
+
+        # ultralytics==8.0.0's predict() only accepts a file path for `source=`
+        # (an in-memory ndarray crashes - see _infer()); each worker gets its
+        # own scratch file so concurrent cameras never overwrite each other's
+        # in-flight frame.
+        self._infer_frame_path = SERVICE_ROOT / "data" / "output" / f"_stream_frame_{id(self)}.jpg"
+        self._infer_frame_path.parent.mkdir(parents=True, exist_ok=True)
 
         self._thread = threading.Thread(
             target=self._run, name=f"camera[{source}]", daemon=True
@@ -431,32 +614,76 @@ class CameraWorker:
         return cv2.resize(frame, (FRAME_WIDTH, int(frame.shape[0] * scale)))
 
     def _infer(self, model, frame) -> list[Detection]:
-        results = model.predict(source=frame, conf=CONFIDENCE_THRESHOLD, verbose=False)[0]
-        names = results.names
+        # See the comment on self._infer_frame_path in __init__: this version of
+        # ultralytics evaluates `source or self.args.source` internally, and a
+        # raw multi-element ndarray's truthiness is ambiguous (ValueError) - it
+        # only accepts a real file path here, not an in-memory frame.
+        cv2.imwrite(str(self._infer_frame_path), frame)
+        detected = model.predict(source=str(self._infer_frame_path), conf=CONFIDENCE_THRESHOLD, verbose=False)[0]
+        names = get_class_names()
 
+        # Same version gap: predict() returns a plain [N, 6] tensor
+        # (x1, y1, x2, y2, conf, cls) per image here, not a Results object
+        # with .boxes/.names (those don't exist in ultralytics==8.0.0).
         detections: list[Detection] = []
-        for box in results.boxes:
-            label = str(names[int(box.cls)]).strip().lower()
-            x1, y1, x2, y2 = (int(v) for v in box.xyxy[0].tolist())
-            detections.append(
-                Detection(
-                    label=label,
-                    confidence=float(box.conf),
-                    box=[x1, y1, x2, y2],
-                    hazard=label in HAZARD_CLASSES,
-                )
+        for x1, y1, x2, y2, confidence, cls_id in detected.tolist():
+            label = str(names.get(int(cls_id), int(cls_id))).strip().lower()
+            det = Detection(
+                label=label,
+                confidence=float(confidence),
+                box=[int(x1), int(y1), int(x2), int(y2)],
+                hazard=label in HAZARD_CLASSES,
             )
+            if det.hazard:
+                self._attribute_worker(det, frame)
+            detections.append(det)
         return detections
+
+    def _attribute_worker(self, det: Detection, frame) -> None:
+        """Match a hazard detection's face against this camera's enrolled workers.
+
+        A hazard only remains a reportable violation once attributed to a
+        specific enrolled worker (see the module docstring, "Per-worker face
+        matching"). An unmatched detection is downgraded rather than dropped -
+        it still shows on the annotated feed for situational awareness, just
+        without counting toward alerts or the violation banner.
+        """
+        x1, y1, x2, y2 = det.box
+        height, width = frame.shape[:2]
+        # A tight YOLO head box crops close to the skull; pad outward (more
+        # below than around, to catch the jaw/chin) so the face detector
+        # inside match_enrolled_worker has a normal-looking face to work with.
+        pad_x = int((x2 - x1) * 0.4)
+        pad_y = int((y2 - y1) * 0.6)
+        crop = frame[max(0, y1 - pad_y):min(height, y2 + pad_y), max(0, x1 - pad_x):min(width, x2 + pad_x)]
+
+        if crop.size == 0:
+            det.hazard = False
+            return
+
+        worker_id, worker_name, _ = match_enrolled_worker(crop, self.camera_id)
+        if worker_id:
+            det.worker_id = worker_id
+            det.worker_name = worker_name
+        else:
+            det.hazard = False
 
     def _annotate(self, frame, detections: list[Detection]):
         annotated = frame.copy()
 
         for det in detections:
-            color = CLASS_COLORS.get(det.label, COLOR_HAZARD if det.hazard else COLOR_SAFE)
+            # A "head" detection that didn't match an enrolled worker is not a
+            # reportable violation (det.hazard was already downgraded to False
+            # for it in _attribute_worker), but it's still worth distinguishing
+            # visually from a genuine no-PPE-on-an-enrolled-worker hazard.
+            if det.label == "head" and not det.hazard:
+                color = COLOR_UNIDENTIFIED
+            else:
+                color = CLASS_COLORS.get(det.label, COLOR_HAZARD if det.hazard else COLOR_SAFE)
             x1, y1, x2, y2 = det.box
             cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
 
-            caption = f"{det.label} {det.confidence:.2f}"
+            caption = f"{det.worker_name} {det.confidence:.2f}" if det.worker_name else f"{det.label} {det.confidence:.2f}"
             (tw, th), _ = cv2.getTextSize(caption, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
             # Keep the label inside the frame, and below the status banner, when
             # the box touches the top edge - otherwise the two overprint and
@@ -515,30 +742,35 @@ class CameraWorker:
     # -- alerting ----------------------------------------------------------
 
     def _maybe_alert(self, detections: list[Detection], frame) -> None:
-        """POST the highest-confidence hazard per violation type, rate-limited.
+        """POST the highest-confidence hazard per (worker, violation type), rate-limited.
 
-        The Node API applies its own 60s cooldown; this one exists so a busy site
-        does not spend the whole frame budget on HTTP round-trips the server will
-        only reject.
+        Only detections already attributed to an enrolled worker reach here -
+        `_attribute_worker` downgrades anything unmatched to hazard=False, so
+        an unidentified bare head never becomes an alert. The Node API applies
+        its own matching cooldown; this one exists so a busy site does not
+        spend the whole frame budget on HTTP round-trips the server will only
+        reject.
         """
-        hazards = [d for d in detections if d.hazard]
+        hazards = [d for d in detections if d.hazard and d.worker_id]
         if not hazards or not self.camera_id:
             return
 
-        by_type: dict[str, Detection] = {}
+        by_key: dict[tuple[str, str], Detection] = {}
         for det in hazards:
             violation = VIOLATION_TYPE_MAP.get(det.label, NO_PPE_VIOLATION_TYPE)
-            if violation not in by_type or det.confidence > by_type[violation].confidence:
-                by_type[violation] = det
+            key = (det.worker_id, violation)
+            if key not in by_key or det.confidence > by_key[key].confidence:
+                by_key[key] = det
 
         now = time.time()
-        for violation, det in by_type.items():
-            last = self._cooldowns.get(violation, 0.0)
+        for (worker_id, violation), det in by_key.items():
+            cooldown_key = f"{worker_id}:{violation}"
+            last = self._cooldowns.get(cooldown_key, 0.0)
             if now - last < ALERT_COOLDOWN_SECONDS:
                 with self._lock:
                     self.state.alerts_suppressed += 1
                 continue
-            self._cooldowns[violation] = now
+            self._cooldowns[cooldown_key] = now
             self._post_alert(violation, det, frame)
 
     def _post_alert(self, violation_type: str, detection: Detection, frame) -> None:
@@ -553,6 +785,7 @@ class CameraWorker:
 
         payload = {
             "cameraId": self.camera_id,
+            "workerId": detection.worker_id,
             "violationType": violation_type,
             "confidence": round(detection.confidence, 4),
             "frameImageBase64": base64.b64encode(encoded.tobytes()).decode("ascii"),
@@ -573,12 +806,14 @@ class CameraWorker:
             "violationType": violation_type,
             "label": detection.label,
             "confidence": round(detection.confidence, 4),
+            "workerId": detection.worker_id,
+            "workerName": detection.worker_name,
             "at": time.time(),
             "status": response.status_code,
         }
 
         if response.status_code == 202:
-            log.info("Alert %s suppressed by server cooldown", violation_type)
+            log.info("Alert %s for %s suppressed by server cooldown", violation_type, detection.worker_name)
             with self._lock:
                 self.state.alerts_suppressed += 1
             return
@@ -590,8 +825,8 @@ class CameraWorker:
             return
 
         log.info(
-            "Reported %s (%.2f) for camera %s",
-            violation_type, detection.confidence, self.camera_id,
+            "Reported %s (%.2f) for %s on camera %s",
+            violation_type, detection.confidence, detection.worker_name, self.camera_id,
         )
         with self._lock:
             self.state.alerts_sent += 1
@@ -633,7 +868,7 @@ class CameraWorker:
                 "lastError": state.last_error,
                 "frameSize": {"width": state.frame_size[0], "height": state.frame_size[1]},
                 "detections": detections,
-                "counts": {name: counts.get(name, 0) for name in CLASS_NAMES},
+                "counts": {name: counts.get(name, 0) for name in get_class_names().values()},
                 "hazardCount": sum(1 for d in detections if d["hazard"]),
                 "confidenceThreshold": CONFIDENCE_THRESHOLD,
                 "framesRead": state.frames_read,
@@ -750,7 +985,7 @@ def health() -> dict:
         "defaultSource": CAMERA_SOURCE,
         "cameraType": CAMERA_TYPE,
         "confidenceThreshold": CONFIDENCE_THRESHOLD,
-        "classes": CLASS_NAMES,
+        "classes": list(get_class_names().values()),
         "activeCameras": len(_workers),
     }
 

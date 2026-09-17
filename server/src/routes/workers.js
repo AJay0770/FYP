@@ -93,4 +93,35 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// DELETE /api/projects/:id/workers/:workerId (ADMIN, or ENGINEER assigned to project)
+router.delete('/:workerId', authenticateToken, authorizeRole('ADMIN', 'ENGINEER'), async (req, res) => {
+  try {
+    const { id: projectId, workerId } = req.params;
+
+    if (req.user.role === 'ENGINEER') {
+      const assigned = await isEngineerAssigned(projectId, req.user.userId);
+      if (!assigned) {
+        return res.status(403).json({ error: 'Forbidden: not assigned to this project' });
+      }
+    }
+
+    // deleteMany + a projectId filter, not delete-by-id: an id alone can't
+    // confirm the worker actually belongs to *this* project. Cascades to the
+    // worker's AttendanceRecords and nulls out SafetyAlert.workerId (schema
+    // relations), so alert history survives but loses attribution.
+    const { count } = await prisma.worker.deleteMany({
+      where: { id: workerId, projectId },
+    });
+
+    if (count === 0) {
+      return res.status(404).json({ error: 'Worker not found' });
+    }
+
+    res.status(204).end();
+  } catch (err) {
+    console.error('Delete worker error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

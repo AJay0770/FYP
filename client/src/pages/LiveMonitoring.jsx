@@ -7,26 +7,26 @@ import { Badge, Button, Card, Select, Table, ToastRegion, useToasts, statusVaria
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 
-// Must match ai-service/safety_stream.py: same four classes, same colours, so the
-// legend here and the boxes burned into the stream cannot drift apart.
+// Must match ai-service/safety_stream.py: same classes, same colours, so the
+// legend here and the boxes burned into the stream cannot drift apart. The
+// trained model (ai-service/TRAINING.md) has 3 classes, not the originally
+// planned 4 - `head` is a bare head with no helmet, i.e. it IS the NO_HELMET
+// violation signal, not a separate "no PPE" concept. There is no negative
+// class for vests yet (would need person-detection + containment logic).
 const CLASSES = [
-  { key: 'hardhat', label: 'Hardhat', color: 'var(--color-success-600, #2e7d32)', hazard: false },
-  { key: 'construction_worker', label: 'Worker', color: 'var(--color-info-600, #3488db)', hazard: false },
-  { key: 'ppe', label: 'PPE', color: 'var(--color-success-600, #2e7d32)', hazard: false },
-  { key: 'no_ppe', label: 'No PPE', color: 'var(--color-danger-600, #f44336)', hazard: true },
+  { key: 'helmet', label: 'Helmet', color: 'var(--color-success-600, #2e7d32)', hazard: false },
+  { key: 'vest', label: 'Vest', color: 'var(--color-success-600, #2e7d32)', hazard: false },
+  { key: 'head', label: 'No Helmet', color: 'var(--color-danger-600, #f44336)', hazard: true },
 ]
 
 const BOX_SAFE = '#4caf50'
 const BOX_HAZARD = '#f44336'
-const BOX_PERSON = '#3488db'
 const POLL_INTERVAL_MS = 2000
 
-const EMPTY_COUNTS = { hardhat: 0, construction_worker: 0, ppe: 0, no_ppe: 0 }
+const EMPTY_COUNTS = { helmet: 0, vest: 0, head: 0 }
 
 function boxColor(detection) {
-  if (detection.hazard) return BOX_HAZARD
-  if (detection.label === 'construction_worker') return BOX_PERSON
-  return BOX_SAFE
+  return detection.hazard ? BOX_HAZARD : BOX_SAFE
 }
 
 /**
@@ -161,7 +161,7 @@ export default function LiveMonitoring({ projectId }) {
       setAlerts((prev) => [alert, ...prev].slice(0, 10))
       push({
         variant: 'danger',
-        title: `${alert.violationType.replace('_', ' ')} detected`,
+        title: `${alert.violationType.replace('_', ' ')} detected${alert.worker ? ` — ${alert.worker.name}` : ''}`,
         message: `${alert.camera?.name ?? 'Camera'} · confidence ${Number(alert.confidenceScore).toFixed(2)}`,
       })
     }
@@ -208,6 +208,11 @@ export default function LiveMonitoring({ projectId }) {
       key: 'violationType',
       header: 'Violation',
       render: (row) => <Badge variant="danger">{row.violationType.replace('_', ' ')}</Badge>,
+    },
+    {
+      key: 'worker',
+      header: 'Worker',
+      render: (row) => row.worker?.name || <span className="ds-muted">—</span>,
     },
     { key: 'confidenceScore', header: 'Confidence', render: (row) => Number(row.confidenceScore).toFixed(2) },
     { key: 'createdAt', header: 'When', render: (row) => new Date(row.createdAt).toLocaleTimeString() },
@@ -360,6 +365,5 @@ export default function LiveMonitoring({ projectId }) {
 }
 
 function boxColorFor(cls) {
-  if (cls.key === 'construction_worker') return BOX_PERSON
-  return BOX_SAFE
+  return cls.hazard ? BOX_HAZARD : BOX_SAFE
 }

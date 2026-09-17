@@ -24,6 +24,7 @@ const ID = {
   cameraEntrance: '00000000-0000-4000-8000-000000000201',
   cameraWorkArea: '00000000-0000-4000-8000-000000000202',
   worker1: '00000000-0000-4000-8000-000000000301',
+  worker2: '00000000-0000-4000-8000-000000000302',
   subscription: '00000000-0000-4000-8000-000000000401',
 };
 
@@ -219,6 +220,19 @@ async function main() {
       projectId: ID.project1,
       name: 'Ali Hassan',
       employeeId: 'EMP-001',
+      faceEmbedding: JSON.stringify(placeholderEmbedding),
+    },
+  });
+
+  // A second, disposable worker with no attendance/alert history attached -
+  // exists purely so the delete-worker e2e tests have something to remove
+  // without disturbing worker1's aggregates that other tests assert on.
+  await prisma.worker.create({
+    data: {
+      id: ID.worker2,
+      projectId: ID.project1,
+      name: 'Disposable Test Worker',
+      employeeId: 'EMP-DISPOSABLE',
       faceEmbedding: JSON.stringify(placeholderEmbedding),
     },
   });

@@ -25,6 +25,7 @@ model User {
   materialEntries   MaterialEntry[]
   chatMessages      ChatMessage[]
   subscription      Subscription?
+  mediaAssets       MediaAsset[]
 
   @@map("users")
 }
@@ -62,6 +63,7 @@ model Project {
   workers         Worker[]
   attendanceRecs  AttendanceRecord[]
   reports         Report[]
+  mediaAssets     MediaAsset[]
 
   @@map("projects")
 }
@@ -139,6 +141,7 @@ model Camera {
 
   // Relations
   safetyAlerts SafetyAlert[]
+  mediaAssets  MediaAsset[]
 
   @@map("cameras")
 }
@@ -160,6 +163,13 @@ model SafetyAlert {
   project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   cameraId          String
   camera            Camera   @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  // Nullable so historical/seeded rows predating per-worker attribution stay
+  // valid, but the internal endpoint that creates new alerts requires it: a
+  // violation is only ever recorded once matched to a specific enrolled
+  // worker (see services/safety_detector integration), not raised against an
+  // unidentified person.
+  workerId          String?
+  worker            Worker?  @relation(fields: [workerId], references: [id], onDelete: SetNull)
   violationType     ViolationType
   confidenceScore   Decimal
   frameImageUrl     String
@@ -174,14 +184,19 @@ enum ViolationType {
 }
 
 model ChatMessage {
-  id        String   @id @default(uuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  senderId  String
-  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  content   String
-  fileUrl   String?
-  createdAt DateTime @default(now())
+  id           String      @id @default(uuid())
+  projectId    String
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  senderId     String
+  sender       User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content      String
+  fileUrl      String?
+  // Set when fileUrl was populated by "sharing" an existing item from the
+  // project's Media tab, rather than a fresh upload - lets the UI show which
+  // library item a message came from. Null for a plain upload/text message.
+  mediaAssetId String?
+  mediaAsset   MediaAsset? @relation(fields: [mediaAssetId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
 
   @@map("chat_messages")
 }
@@ -197,6 +212,7 @@ model Worker {
 
   // Relations
   attendanceRecords AttendanceRecord[]
+  safetyAlerts      SafetyAlert[]
 
   @@map("workers")
 }
@@ -263,6 +279,36 @@ model Report {
 enum ReportType {
   DAILY
   WEEKLY
+}
+
+// The project's shared media library: engineer-recorded camera clips (auto-
+// added when a clip finishes recording) plus anything an engineer explicitly
+// uploads to share. Distinct from SiteUpdate, which is a dated progress feed
+// with a description - this is a flat, browsable library meant to be shared
+// (e.g. into project chat), not a timeline entry.
+model MediaAsset {
+  id           String           @id @default(uuid())
+  projectId    String
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  cameraId     String?
+  camera       Camera?          @relation(fields: [cameraId], references: [id], onDelete: SetNull)
+  type         MediaType
+  source       MediaAssetSource
+  url          String
+  caption      String?
+  uploadedById String
+  uploadedBy   User             @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime         @default(now())
+
+  // Relations
+  chatMessages ChatMessage[]
+
+  @@map("media_assets")
+}
+
+enum MediaAssetSource {
+  CLIP_RECORDING
+  MANUAL_UPLOAD
 }
 
 // Placeholder model for DB connection verification

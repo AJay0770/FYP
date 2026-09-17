@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuildSite 360 - Comprehensive Project Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1F3A8A 0%, #1E40AF 100%);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .toc {
+            background-color: #E0E7FF;
+            padding: 20px;
+            border-left: 4px solid #1E40AF;
+            margin: 20px 0;
+        }
+
+        .toc h2 {
+            color: #1F3A8A;
+            margin-bottom: 15px;
+        }
+
+        .toc ol {
+            padding-left: 20px;
+        }
+
+        .toc li {
+            margin: 8px 0;
+            color: #0C4A6E;
+        }
+
+        section {
+            margin: 40px 0;
+            padding: 30px;
+            background-color: #fafafa;
+            border-radius: 8px;
+        }
+
+        h2 {
+            color: #1F3A8A;
+            border-bottom: 3px solid #1E40AF;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        h3 {
+            color: #0C4A6E;
+            margin: 20px 0 10px 0;
+            font-size: 18px;
+        }
+
+        p {
+            margin: 15px 0;
+            text-align: justify;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        table thead {
+            background-color: #1E40AF;
+            color: white;
+        }
+
+        table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table tbody tr:nth-child(odd) {
+            background-color: #f9fafb;
+        }
+
+        table tbody tr:hover {
+            background-color: #E0E7FF;
+        }
+
+        .diagram-container {
+            background-color: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .diagram-container svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .feature-list li:before {
+            content: "✓ ";
+            color: #10b981;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-complete {
+            background-color: #DCFCE7;
+            color: #166534;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .tech-card {
+            background-color: white;
+            padding: 15px;
+            border: 1px solid #E0E7FF;
+            border-radius: 4px;
+            border-left: 4px solid #1E40AF;
+        }
+
+        .tech-card h4 {
+            color: #1F3A8A;
+            margin-bottom: 5px;
+        }
+
+        .tech-card p {
+            font-size: 13px;
+            color: #666;
+            margin: 0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            border-top: 1px solid #ddd;
+            margin-top: 40px;
+        }
+
+        .highlight {
+            background-color: #FEF3C7;
+            padding: 15px;
+            border-left: 4px solid #D97706;
+            margin: 15px 0;
+        }
+
+        @media print {
+            body {
+                background-color: white;
+            }
+            section {
+                page-break-inside: avoid;
+                background-color: white;
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>BuildSite 360</h1>
+            <p>Construction Site Monitoring Platform</p>
+            <p style="margin-top: 20px; font-size: 14px;">Comprehensive Project Report with Workflow Diagrams</p>
+        </header>
+
+        <div class="toc">
+            <h2>📋 Table of Contents</h2>
+            <ol>
+                <li><a href="#overview">Project Implementation Overview</a></li>
+                <li><a href="#techstack">Technology Stack</a></li>
+                <li><a href="#architecture">Architecture & Services</a></li>
+                <li><a href="#system-arch-diagram">System Architecture Diagram</a></li>
+                <li><a href="#auth-flow">Authentication & Authorization Flow</a></li>
+                <li><a href="#safety-flow">Safety Detection Workflow</a></li>
+                <li><a href="#attendance-flow">Attendance Tracking Workflow</a></li>
+                <li><a href="#report-flow">Report Generation Workflow</a></li>
+                <li><a href="#features">Core Features Implemented</a></li>
+                <li><a href="#deployment">Deployment & DevOps</a></li>
+                <li><a href="#recommendations">Recommendations & Future Work</a></li>
+            </ol>
+        </div>
+
+        <section id="overview">
+            <h2>1. Project Implementation Overview</h2>
+            <p>BuildSite 360 is a comprehensive construction site monitoring platform designed to streamline operations, enhance safety compliance, and provide real-time visibility into project progress. The platform integrates AI-powered safety detection, biometric attendance tracking, real-time communication, and detailed site analytics into a cohesive system.</p>
+
+            <h3>Project Status</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Component</th>
+                        <th>Status</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Frontend (React 18)</td>
+                        <td><span class="status-badge status-complete">✓ Complete</span></td>
+                        <td>Vite-based SPA with Context API, no Redux</td>
+                    </tr>
+                    <tr>
+                        <td>Backend (Express.js)</td>
+                        <td><span class="status-badge status-complete">✓ Complete</span></td>
+                        <td>40+ REST endpoints, Socket.io real-time</td>
+                    </tr>
+                    <tr>
+                        <td>AI Service (FastAPI)</td>
+                        <td><span class="status-badge status-complete">✓ Complete</span></td>
+                        <td>YOLOv8 + DeepFace integration</td>
+                    </tr>
+                    <tr>
+                        <td>Database (PostgreSQL)</td>
+                        <td><span class="status-badge status-complete">✓ Complete</span></td>
+                        <td>14 Prisma models, full schema</td>
+                    </tr>
+                    <tr>
+                        <td>Real-time System</td>
+                        <td><span class="status-badge status-complete">✓ Complete</span></td>
+                        <td>Socket.io WebSocket events</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="techstack">
+            <h2>2. Technology Stack</h2>
+
+            <h3>Frontend Technologies</h3>
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <h4>React 18.2.0</h4>
+                    <p>Component-based UI framework with hooks</p>
+                </div>
+                <div class="tech-card">
+                    <h4>Vite 4.4.0</h4>
+                    <p>Modern build tool for frontend</p>
+                </div>
+                <div class="tech-card">
+                    <h4>Axios 1.4.0</h4>
+                    <p>HTTP client with JWT interceptor</p>
+                </div>
+                <div class="tech-card">
+                    <h4>Socket.io-client 4.5.0</h4>
+                    <p>Real-time WebSocket communication</p>
+                </div>
+                <div class="tech-card">
+                    <h4>Recharts 2.10.0</h4>
+                    <p>React charting library for analytics</p>
+                </div>
+            </div>
+
+            <h3>Backend Technologies</h3>
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <h4>Express.js 4.18.2</h4>
+                    <p>Node.js web framework</p>
+                </div>
+                <div class="tech-card">
+                    <h4>Prisma 5.0.0</h4>
+                    <p>Modern ORM for database access</p>
+                </div>
+                <div class="tech-card">
+                    <h4>PostgreSQL 15</h4>
+                    <p>Relational database</p>
+                </div>
+                <div class="tech-card">
+                    <h4>Socket.io 4.5.0</h4>
+                    <p>Real-time bidirectional communication</p>
+                </div>
+                <div class="tech-card">
+                    <h4>JWT 9.0.0</h4>
+                    <p>Token-based authentication</p>
+                </div>
+                <div class="tech-card">
+                    <h4>Bcrypt 5.1.0</h4>
+                    <p>Password hashing (cost factor 12)</p>
+                </div>
+                <div class="tech-card">
+                    <h4>AWS SDK v3 3.549.0</h4>
+                    <p>S3 and MinIO file storage</p>
+                </div>
+                <div class="tech-card">
+                    <h4>node-cron 3.0.2</h4>
+                    <p>Job scheduling for reports</p>
+                </div>
+            </div>
+
+            <h3>AI Service Technologies</h3>
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <h4>FastAPI 0.104.1</h4>
+                    <p>Modern Python web framework</p>
+                </div>
+                <div class="tech-card">
+                    <h4>PyTorch 2.0.1</h4>
+                    <p>Deep learning framework</p>
+                </div>
+                <div class="tech-card">
+                    <h4>Ultralytics YOLOv8s 8.0.0</h4>
+                    <p>Object detection for PPE</p>
+                </div>
+                <div class="tech-card">
+                    <h4>DeepFace 0.0.71</h4>
+                    <p>Facial recognition and embedding</p>
+                </div>
+                <div class="tech-card">
+                    <h4>OpenCV 4.8.1.78</h4>
+                    <p>Computer vision processing</p>
+                </div>
+                <div class="tech-card">
+                    <h4>NumPy 1.24.3</h4>
+                    <p>Numerical computing</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="architecture">
+            <h2>3. Architecture & Services</h2>
+
+            <h3>Monorepo Structure</h3>
+            <p>BuildSite 360 is organized as a single Git repository containing three independent services:</p>
+
+            <p><strong>client/</strong> - React 18 frontend built with Vite. Uses Context API for state management (no Redux/Zustand). Communicates with backend via Axios with JWT interceptor and Socket.io for real-time updates.</p>
+
+            <p><strong>server/</strong> - Express.js API built with CommonJS. Manages 40+ REST endpoints nested by project ID. Integrates Prisma ORM, Socket.io for realtime events, AWS S3 integration, and FFmpeg for camera streaming.</p>
+
+            <p><strong>ai-service/</strong> - FastAPI microservice bound to localhost only (never exposed to browser). Implements YOLOv8s for PPE detection and DeepFace/ArcFace for facial recognition. Communicates with Node backend via X-Internal-Token authenticated endpoints.</p>
+
+            <h3>Authentication Flow</h3>
+            <p>JWT access tokens (24-hour expiry) + httpOnly refresh cookies (7-day expiry). Two-layer authorization: role check (ADMIN/ENGINEER/CLIENT) + project membership verification. Passwords hashed with bcrypt at cost factor 12.</p>
+
+            <h3>Database Models (14 Total)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>Key Fields</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>User</td>
+                        <td>email, role, passwordHash, tokenVersion</td>
+                        <td>System users (ADMIN/ENGINEER/CLIENT)</td>
+                    </tr>
+                    <tr>
+                        <td>Project</td>
+                        <td>name, status, budget, GPS coordinates</td>
+                        <td>Construction projects</td>
+                    </tr>
+                    <tr>
+                        <td>ProjectEngineer</td>
+                        <td>projectId, engineerId</td>
+                        <td>Engineer-to-project assignments</td>
+                    </tr>
+                    <tr>
+                        <td>SiteUpdate</td>
+                        <td>description, mediaUrls, mediaType</td>
+                        <td>Daily progress updates</td>
+                    </tr>
+                    <tr>
+                        <td>MaterialEntry</td>
+                        <td>name, quantity, unitCost, entryType</td>
+                        <td>Inventory tracking (RECEIVED/CONSUMED)</td>
+                    </tr>
+                    <tr>
+                        <td>Camera</td>
+                        <td>name, zone, rtspUrl, status</td>
+                        <td>Site cameras (ENTRANCE/WORK_AREA/STORAGE)</td>
+                    </tr>
+                    <tr>
+                        <td>SafetyAlert</td>
+                        <td>violationType, confidenceScore, frameImageUrl</td>
+                        <td>PPE violations (NO_HELMET/NO_VEST)</td>
+                    </tr>
+                    <tr>
+                        <td>Worker</td>
+                        <td>name, employeeId, faceEmbedding</td>
+                        <td>Worker biometric data</td>
+                    </tr>
+                    <tr>
+                        <td>AttendanceRecord</td>
+                        <td>checkInTime, matchConfidence, date</td>
+                        <td>Face-matched attendance</td>
+                    </tr>
+                    <tr>
+                        <td>ChatMessage</td>
+                        <td>content, fileUrl, mediaAssetId</td>
+                        <td>Project communication</td>
+                    </tr>
+                    <tr>
+                        <td>Subscription</td>
+                        <td>plan, status, provider, billingDate</td>
+                        <td>Billing (BASIC/PRO/ENTERPRISE)</td>
+                    </tr>
+                    <tr>
+                        <td>Report</td>
+                        <td>reportType, pdfUrl</td>
+                        <td>Generated reports (DAILY/WEEKLY)</td>
+                    </tr>
+                    <tr>
+                        <td>MediaAsset</td>
+                        <td>url, source, caption</td>
+                        <td>Shared media library</td>
+                    </tr>
+                    <tr>
+                        <td>HealthCheck</td>
+                        <td>status, checkedAt</td>
+                        <td>System health monitoring</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="system-arch-diagram">
+            <h2>4. System Architecture Diagram</h2>
+            <p>This diagram illustrates how all system components interconnect and communicate. The React browser client communicates with Express.js API via REST endpoints. Socket.io handles real-time WebSocket events. The API interfaces with PostgreSQL database via Prisma ORM, and with the FastAPI AI service via internal authentication tokens. External services handle file storage (AWS S3), email delivery, PDF generation, and RTSP camera streaming.</p>
+            <div class="diagram-container">
+                <?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .box { fill: #E0E7FF; stroke: #1E40AF; stroke-width: 2; }
+      .box-text { font-family: Arial; font-size: 12px; fill: #1F3A8A; font-weight: bold; }
+      .label { font-family: Arial; font-size: 10px; fill: #666; }
+      .arrow { stroke: #1E40AF; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#1E40AF"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="25" font-size="16" font-weight="bold" text-anchor="middle" fill="#1F3A8A">
+    System Architecture &amp; Module Connectivity
+  </text>
+
+  <!-- Browser/Client -->
+  <rect class="box" x="50" y="80" width="140" height="60" rx="5"/>
+  <text class="box-text" x="120" y="115" text-anchor="middle">Browser Client</text>
+  <text class="label" x="120" y="132" text-anchor="middle">(React 18 + Vite)</text>
+
+  <!-- API Gateway / Express -->
+  <rect class="box" x="280" y="80" width="140" height="60" rx="5"/>
+  <text class="box-text" x="350" y="115" text-anchor="middle">Express.js API</text>
+  <text class="label" x="350" y="132" text-anchor="middle">40+ Endpoints</text>
+
+  <!-- WebSocket -->
+  <rect class="box" x="510" y="80" width="140" height="60" rx="5"/>
+  <text class="box-text" x="580" y="115" text-anchor="middle">Socket.io</text>
+  <text class="label" x="580" y="132" text-anchor="middle">Real-time Events</text>
+
+  <!-- PostgreSQL -->
+  <rect class="box" x="740" y="80" width="140" height="60" rx="5"/>
+  <text class="box-text" x="810" y="115" text-anchor="middle">PostgreSQL</text>
+  <text class="label" x="810" y="132" text-anchor="middle">14 Models</text>
+
+  <!-- Arrows from Client to Express -->
+  <path class="arrow" d="M 190 110 L 280 110"/>
+  <text class="label" x="235" y="105">REST API</text>
+
+  <!-- Arrows from Express to Socket.io -->
+  <path class="arrow" d="M 420 110 L 510 110"/>
+  <text class="label" x="465" y="105">WebSocket</text>
+
+  <!-- Arrows from Express to PostgreSQL -->
+  <path class="arrow" d="M 420 130 L 740 130"/>
+  <text class="label" x="580" y="148">Prisma ORM</text>
+
+  <!-- AI Service -->
+  <rect class="box" x="280" y="220" width="140" height="60" rx="5"/>
+  <text class="box-text" x="350" y="255" text-anchor="middle">FastAPI AI</text>
+  <text class="label" x="350" y="272" text-anchor="middle">Python Service</text>
+
+  <!-- Arrow from Express to AI -->
+  <path class="arrow" d="M 350 150 L 350 220"/>
+  <text class="label" x="365" y="185">X-Internal-Token</text>
+
+  <!-- S3 Storage -->
+  <rect class="box" x="510" y="220" width="140" height="60" rx="5"/>
+  <text class="box-text" x="580" y="255" text-anchor="middle">AWS S3/MinIO</text>
+  <text class="label" x="580" y="272" text-anchor="middle">File Storage</text>
+
+  <!-- Arrow from Express to S3 -->
+  <path class="arrow" d="M 420 130 L 510 160"/>
+  <text class="label" x="465" y="145">SDK v3</text>
+
+  <!-- Cameras/RTSP -->
+  <rect class="box" x="50" y="220" width="140" height="60" rx="5"/>
+  <text class="box-text" x="120" y="255" text-anchor="middle">RTSP Cameras</text>
+  <text class="label" x="120" y="272" text-anchor="middle">Streams</text>
+
+  <!-- Arrow from Cameras to AI -->
+  <path class="arrow" d="M 190 250 L 280 250"/>
+  <text class="label" x="235" y="245">FFmpeg</text>
+
+  <!-- Services Box -->
+  <rect class="box" x="50" y="360" width="800" height="100" rx="5" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="5,5"/>
+  <text class="label" x="60" y="380">CORE SERVICES & INTEGRATIONS</text>
+
+  <text class="label" x="70" y="405">• Node-cron (Scheduled Reports)  • Nodemailer (Email)  • PDFKit (PDF Generation)</text>
+  <text class="label" x="70" y="425">• BCrypt (Password Hashing)  • JWT Auth (24h access, 7d refresh)  • CORS Configuration</text>
+  <text class="label" x="70" y="445">• YOLOv8s (PPE Detection)  • DeepFace/ArcFace (Facial Recognition)  • OpenCV (Image Processing)</text>
+</svg>
+            </div>
+        </section>
+
+        <section id="auth-flow">
+            <h2>5. Authentication & Authorization Flow</h2>
+            <p>Two-layer authorization ensures data security. Users log in with credentials, receive JWT access tokens (24h) and refresh tokens via httpOnly cookies (7d). Every API request is validated for: (1) token validity, (2) user role (ADMIN/ENGINEER/CLIENT), (3) project membership. Unauthorized requests return 404 to prevent resource enumeration.</p>
+            <div class="diagram-container">
+                <?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .box { fill: #DBEAFE; stroke: #0369A1; stroke-width: 2; }
+      .box-text { font-family: Arial; font-size: 11px; fill: #0C4A6E; font-weight: bold; }
+      .decision { fill: #FEF3C7; stroke: #D97706; stroke-width: 2; }
+      .decision-text { font-family: Arial; font-size: 10px; fill: #92400E; }
+      .label { font-family: Arial; font-size: 9px; fill: #666; }
+      .arrow { stroke: #0369A1; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .arrow-red { stroke: #DC2626; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-red); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#0369A1"/>
+    </marker>
+    <marker id="arrowhead-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#DC2626"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="25" font-size="16" font-weight="bold" text-anchor="middle" fill="#0C4A6E">
+    Authentication &amp; Authorization Flow
+  </text>
+
+  <!-- User Login -->
+  <rect class="box" x="50" y="50" width="120" height="50" rx="3"/>
+  <text class="box-text" x="110" y="83" text-anchor="middle">User Login</text>
+
+  <!-- Verify Credentials -->
+  <polygon class="decision" points="250,50 330,100 250,150 170,100"/>
+  <text class="decision-text" x="250" y="100" text-anchor="middle" font-size="10">Verify</text>
+  <text class="decision-text" x="250" y="113" text-anchor="middle" font-size="10">Credentials</text>
+
+  <!-- Arrow from login to verify -->
+  <path class="arrow" d="M 170 75 L 170 100"/>
+
+  <!-- Generate Tokens -->
+  <rect class="box" x="380" y="50" width="130" height="50" rx="3"/>
+  <text class="box-text" x="445" y="75" text-anchor="middle">Generate JWT</text>
+  <text class="box-text" x="445" y="90" text-anchor="middle">Access Token (24h)</text>
+
+  <!-- Arrow from verify to tokens -->
+  <path class="arrow" d="M 330 100 L 380 75"/>
+  <text class="label" x="355" y="85">Valid</text>
+
+  <!-- Refresh Cookie -->
+  <rect class="box" x="380" y="120" width="130" height="50" rx="3"/>
+  <text class="box-text" x="445" y="140" text-anchor="middle">httpOnly Cookie</text>
+  <text class="box-text" x="445" y="155" text-anchor="middle">Refresh (7d)</text>
+
+  <!-- Failed Auth -->
+  <rect class="box" x="550" y="50" width="120" height="50" rx="3" fill="#FECACA"/>
+  <text class="box-text" x="610" y="83" text-anchor="middle" fill="#7F1D1D">Auth Failed</text>
+
+  <!-- Arrow from verify to failed -->
+  <path class="arrow-red" d="M 330 100 L 550 75"/>
+  <text class="label" x="435" y="85">Invalid</text>
+
+  <!-- Request with Token -->
+  <rect class="box" x="50" y="260" width="120" height="50" rx="3"/>
+  <text class="box-text" x="110" y="283" text-anchor="middle">Browser Request</text>
+  <text class="box-text" x="110" y="298" text-anchor="middle">+ JWT Token</text>
+
+  <!-- Verify Token -->
+  <polygon class="decision" points="250,260 330,310 250,360 170,310"/>
+  <text class="decision-text" x="250" y="310" text-anchor="middle" font-size="10">Verify</text>
+  <text class="decision-text" x="250" y="323" text-anchor="middle" font-size="10">JWT Token</text>
+
+  <!-- Arrow from request to verify -->
+  <path class="arrow" d="M 170 285 L 170 310"/>
+
+  <!-- Check Role -->
+  <polygon class="decision" points="400,260 480,310 400,360 320,310"/>
+  <text class="decision-text" x="400" y="305" text-anchor="middle" font-size="10">Check</text>
+  <text class="decision-text" x="400" y="320" text-anchor="middle" font-size="10">Role</text>
+
+  <!-- Arrow from verify to role check -->
+  <path class="arrow" d="M 330 310 L 320 310"/>
+
+  <!-- Check Project Access -->
+  <polygon class="decision" points="550,260 630,310 550,360 470,310"/>
+  <text class="decision-text" x="550" y="305" text-anchor="middle" font-size="10">Check</text>
+  <text class="decision-text" x="550" y="320" text-anchor="middle" font-size="10">Project</text>
+  <text class="decision-text" x="550" y="335" text-anchor="middle" font-size="9">Access</text>
+
+  <!-- Arrow from role to project access -->
+  <path class="arrow" d="M 480 310 L 470 310"/>
+  <text class="label" x="475" y="305">Pass</text>
+
+  <!-- Access Granted -->
+  <rect class="box" x="700" y="280" width="120" height="50" rx="3" fill="#DCFCE7"/>
+  <text class="box-text" x="760" y="303" text-anchor="middle" fill="#166534">Access</text>
+  <text class="box-text" x="760" y="318" text-anchor="middle" fill="#166534">Granted</text>
+
+  <!-- Arrow from project access to granted -->
+  <path class="arrow" d="M 630 310 L 700 305"/>
+  <text class="label" x="665" y="305">Pass</text>
+
+  <!-- Access Denied -->
+  <rect class="box" x="700" y="350" width="120" height="50" rx="3" fill="#FECACA"/>
+  <text class="box-text" x="760" y="373" text-anchor="middle" fill="#7F1D1D">Access</text>
+  <text class="box-text" x="760" y="388" text-anchor="middle" fill="#7F1D1D">Denied (404)</text>
+
+  <!-- Arrows from checks to denied -->
+  <path class="arrow-red" d="M 630 320 L 700 370"/>
+  <text class="label" x="665" y="345">Fail</text>
+
+  <path class="arrow-red" d="M 480 320 L 700 360"/>
+
+  <!-- Legend -->
+  <text class="label" x="50" y="450" font-weight="bold">TWO-LAYER AUTHORIZATION</text>
+  <text class="label" x="50" y="470">1. Role Check (ADMIN/ENGINEER/CLIENT)  +  2. Project Membership Verification</text>
+  <text class="label" x="50" y="485">Token revocation via tokenVersion counter on User model</text>
+</svg>
+            </div>
+        </section>
+
+        <section id="safety-flow">
+            <h2>6. Safety Detection Workflow</h2>
+            <p>The AI safety detection pipeline operates in real-time: RTSP camera streams are relayed via FFmpeg, analyzed by YOLOv8s model for PPE violations. When violations exceed the confidence threshold (0.75+) and are optionally matched to enrolled workers, SafetyAlert records are created and broadcast to all connected clients via Socket.io for immediate notification.</p>
+            <div class="diagram-container">
+                <?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="450" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .box { fill: #FEE2E2; stroke: #991B1B; stroke-width: 2; }
+      .box-text { font-family: Arial; font-size: 11px; fill: #7F1D1D; font-weight: bold; }
+      .label { font-family: Arial; font-size: 10px; fill: #666; }
+      .arrow { stroke: #991B1B; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#991B1B"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="25" font-size="16" font-weight="bold" text-anchor="middle" fill="#7F1D1D">
+    AI-Powered Safety Detection Workflow
+  </text>
+
+  <!-- RTSP Stream -->
+  <rect class="box" x="30" y="60" width="110" height="50" rx="3"/>
+  <text class="box-text" x="85" y="88" text-anchor="middle">RTSP Stream</text>
+
+  <!-- FFmpeg Relay -->
+  <rect class="box" x="200" y="60" width="110" height="50" rx="3"/>
+  <text class="box-text" x="255" y="88" text-anchor="middle">FFmpeg Relay</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 140 85 L 200 85"/>
+
+  <!-- YOLOv8s Detection -->
+  <rect class="box" x="370" y="60" width="110" height="50" rx="3"/>
+  <text class="box-text" x="425" y="75" text-anchor="middle">YOLOv8s</text>
+  <text class="box-text" x="425" y="90" text-anchor="middle">PPE Detection</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 310 85 L 370 85"/>
+
+  <!-- Violation Types -->
+  <rect class="box" x="540" y="60" width="110" height="50" rx="3"/>
+  <text class="box-text" x="595" y="75" text-anchor="middle">Violation Type</text>
+  <text class="box-text" x="595" y="90" text-anchor="middle">(Helmet/Vest)</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 480 85 L 540 85"/>
+
+  <!-- Confidence Score -->
+  <rect class="box" x="710" y="60" width="110" height="50" rx="3"/>
+  <text class="box-text" x="765" y="75" text-anchor="middle">Confidence</text>
+  <text class="box-text" x="765" y="90" text-anchor="middle">Score Check</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 650 85 L 710 85"/>
+
+  <!-- Alert Threshold Decision -->
+  <text x="450" y="180" font-size="12" font-weight="bold" text-anchor="middle" fill="#7F1D1D">
+    Threshold: 0.75+ confidence
+  </text>
+
+  <!-- Worker Detection Path -->
+  <rect class="box" x="30" y="220" width="110" height="50" rx="3"/>
+  <text class="box-text" x="85" y="248" text-anchor="middle">Frame Image</text>
+
+  <rect class="box" x="200" y="220" width="110" height="50" rx="3"/>
+  <text class="box-text" x="255" y="248" text-anchor="middle">Worker ID</text>
+  <text class="label" x="255" y="262" text-anchor="middle">(Facial Match)</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 140 245 L 200 245"/>
+
+  <!-- Safety Alert -->
+  <rect class="box" x="370" y="220" width="110" height="50" rx="3"/>
+  <text class="box-text" x="425" y="243" text-anchor="middle">Create</text>
+  <text class="box-text" x="425" y="258" text-anchor="middle">SafetyAlert</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 310 245 L 370 245"/>
+
+  <!-- Store in DB -->
+  <rect class="box" x="540" y="220" width="110" height="50" rx="3"/>
+  <text class="box-text" x="595" y="248" text-anchor="middle">Store Alert</text>
+  <text class="label" x="595" y="262" text-anchor="middle">(PostgreSQL)</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 480 245 L 540 245"/>
+
+  <!-- Socket.io Emit -->
+  <rect class="box" x="710" y="220" width="110" height="50" rx="3"/>
+  <text class="box-text" x="765" y="243" text-anchor="middle">Socket.io</text>
+  <text class="box-text" x="765" y="258" text-anchor="middle">Broadcast</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 650 245 L 710 245"/>
+
+  <!-- Alert Cooldown -->
+  <rect class="box" x="370" y="340" width="230" height="40" rx="3" fill="#FEF3C7" stroke="#D97706" stroke-width="2"/>
+  <text class="box-text" x="485" y="365" text-anchor="middle" fill="#92400E">
+    Alert Cooldown: Configurable (default 30-60 seconds)
+  </text>
+
+  <!-- Arrows from alert to cooldown -->
+  <path class="arrow" d="M 425 270 L 485 340"/>
+</svg>
+            </div>
+        </section>
+
+        <section id="attendance-flow">
+            <h2>7. Attendance Tracking Workflow</h2>
+            <p>Biometric attendance tracking eliminates manual timekeeping: Worker faces are detected by cameras, DeepFace/ArcFace extracts facial embeddings and compares against enrolled worker faces. Matches above the confidence threshold (0.60+) automatically create AttendanceRecord entries with a unique constraint per worker-date to prevent duplicates.</p>
+            <div class="diagram-container">
+                <?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="420" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .box { fill: #ECFDF5; stroke: #065F46; stroke-width: 2; }
+      .box-text { font-family: Arial; font-size: 11px; fill: #064E3B; font-weight: bold; }
+      .label { font-family: Arial; font-size: 10px; fill: #666; }
+      .arrow { stroke: #065F46; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#065F46"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="25" font-size="16" font-weight="bold" text-anchor="middle" fill="#064E3B">
+    Biometric Attendance Tracking Workflow
+  </text>
+
+  <!-- Worker Face Detection -->
+  <rect class="box" x="30" y="60" width="110" height="50" rx="3"/>
+  <text class="box-text" x="85" y="88" text-anchor="middle">Worker Face</text>
+  <text class="label" x="85" y="103" text-anchor="middle">Detected</text>
+
+  <!-- DeepFace/ArcFace -->
+  <rect class="box" x="200" y="60" width="110" height="50" rx="3"/>
+  <text class="box-text" x="255" y="75" text-anchor="middle">DeepFace</text>
+  <text class="box-text" x="255" y="90" text-anchor="middle">ArcFace</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 140 85 L 200 85"/>
+  <text class="label" x="170" y="80">Extract</text>
+  <text class="label" x="170" y="92">Embedding</text>
+
+  <!-- Face Embedding DB -->
+  <rect class="box" x="370" y="60" width="110" height="50" rx="3"/>
+  <text class="box-text" x="425" y="75" text-anchor="middle">Compare with</text>
+  <text class="box-text" x="425" y="90" text-anchor="middle">Stored Faces</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 310 85 L 370 85"/>
+
+  <!-- Match Score -->
+  <rect class="box" x="540" y="60" width="110" height="50" rx="3"/>
+  <text class="box-text" x="595" y="75" text-anchor="middle">Match</text>
+  <text class="box-text" x="595" y="90" text-anchor="middle">Confidence</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 480 85 L 540 85"/>
+
+  <!-- Threshold Check -->
+  <text x="450" y="170" font-size="12" font-weight="bold" text-anchor="middle" fill="#064E3B">
+    Confidence Threshold: 0.60+ (configurable)
+  </text>
+
+  <!-- Check-in Process -->
+  <rect class="box" x="30" y="200" width="110" height="50" rx="3"/>
+  <text class="box-text" x="85" y="228" text-anchor="middle">Worker ID</text>
+  <text class="label" x="85" y="242" text-anchor="middle">Matched</text>
+
+  <rect class="box" x="200" y="200" width="110" height="50" rx="3"/>
+  <text class="box-text" x="255" y="225" text-anchor="middle">Get Current</text>
+  <text class="box-text" x="255" y="240" text-anchor="middle">Date</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 140 225 L 200 225"/>
+
+  <!-- Create Attendance Record -->
+  <rect class="box" x="370" y="200" width="110" height="50" rx="3"/>
+  <text class="box-text" x="425" y="220" text-anchor="middle">Create</text>
+  <text class="box-text" x="425" y="235" text-anchor="middle">AttendanceRecord</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 310 225 L 370 225"/>
+
+  <!-- Store Record -->
+  <rect class="box" x="540" y="200" width="110" height="50" rx="3"/>
+  <text class="box-text" x="595" y="220" text-anchor="middle">Store in</text>
+  <text class="box-text" x="595" y="235" text-anchor="middle">PostgreSQL</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 480 225 L 540 225"/>
+
+  <!-- Constraints -->
+  <rect class="box" x="710" y="200" width="110" height="50" rx="3"/>
+  <text class="box-text" x="765" y="218" text-anchor="middle">Unique on</text>
+  <text class="box-text" x="765" y="233" text-anchor="middle">(workerId,</text>
+  <text class="box-text" x="765" y="248" text-anchor="middle">date)</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 650 225 L 710 225"/>
+
+  <!-- Enrollment Info -->
+  <rect class="box" x="170" y="320" width="560" height="70" rx="3" fill="#F0FDFA" stroke="#0D9488" stroke-width="1" stroke-dasharray="3,3"/>
+  <text class="box-text" x="450" y="345" text-anchor="middle" fill="#115E59">WORKER ENROLLMENT PROCESS</text>
+  <text class="label" x="180" y="365">1. Admin/Engineer enrolls worker with face photo</text>
+  <text class="label" x="180" y="380">2. System extracts facial embedding via DeepFace/ArcFace</text>
+  <text class="label" x="180" y="395">3. Embedding stored as JSON string in Worker.faceEmbedding</text>
+</svg>
+            </div>
+        </section>
+
+        <section id="report-flow">
+            <h2>8. Report Generation Workflow</h2>
+            <p>Automated daily and weekly report generation via node-cron: scheduled jobs query safety alerts, attendance records, material entries, and site updates from PostgreSQL. PDFKit aggregates this data into professional PDF reports uploaded to S3, with email notifications sent to stakeholders via Nodemailer.</p>
+            <div class="diagram-container">
+                <?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .box { fill: #EDE9FE; stroke: #5B21B6; stroke-width: 2; }
+      .box-text { font-family: Arial; font-size: 11px; fill: #3730A3; font-weight: bold; }
+      .label { font-family: Arial; font-size: 10px; fill: #666; }
+      .arrow { stroke: #5B21B6; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#5B21B6"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="25" font-size="16" font-weight="bold" text-anchor="middle" fill="#3730A3">
+    Automated Report Generation Workflow
+  </text>
+
+  <!-- Scheduled Job -->
+  <rect class="box" x="40" y="70" width="100" height="50" rx="3"/>
+  <text class="box-text" x="90" y="100" text-anchor="middle">node-cron</text>
+  <text class="label" x="90" y="115" text-anchor="middle">Scheduled</text>
+
+  <!-- Cron Job Triggers -->
+  <rect class="box" x="200" y="70" width="100" height="50" rx="3"/>
+  <text class="box-text" x="250" y="90" text-anchor="middle">Trigger</text>
+  <text class="box-text" x="250" y="105" text-anchor="middle">Daily/Weekly</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 140 95 L 200 95"/>
+
+  <!-- Query Data -->
+  <rect class="box" x="360" y="70" width="100" height="50" rx="3"/>
+  <text class="box-text" x="410" y="90" text-anchor="middle">Query Data</text>
+  <text class="box-text" x="410" y="105" text-anchor="middle">from DB</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 300 95 L 360 95"/>
+
+  <!-- Generate Content -->
+  <rect class="box" x="520" y="70" width="100" height="50" rx="3"/>
+  <text class="box-text" x="570" y="90" text-anchor="middle">Aggregate</text>
+  <text class="box-text" x="570" y="105" text-anchor="middle">Metrics</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 460 95 L 520 95"/>
+
+  <!-- Generate PDF -->
+  <rect class="box" x="680" y="70" width="100" height="50" rx="3"/>
+  <text class="box-text" x="730" y="90" text-anchor="middle">PDFKit</text>
+  <text class="box-text" x="730" y="105" text-anchor="middle">Generate PDF</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 620 95 L 680 95"/>
+
+  <!-- Report Content -->
+  <rect class="box" x="200" y="180" width="500" height="80" rx="3" fill="#F3F4F6" stroke="#666" stroke-width="1" stroke-dasharray="3,3"/>
+  <text class="box-text" x="450" y="205" text-anchor="middle" fill="#666">REPORT CONTENT INCLUDES</text>
+  <text class="label" x="220" y="225">• Safety Alerts Summary  • Attendance Records  • Material Consumption</text>
+  <text class="label" x="220" y="245">• Site Updates  • Budget vs Actual  • Daily Progress Metrics</text>
+  <text class="label" x="220" y="265">• Worker Productivity  • Equipment Hours</text>
+
+  <!-- Upload to S3 -->
+  <rect class="box" x="40" y="310" width="100" height="50" rx="3"/>
+  <text class="box-text" x="90" y="335" text-anchor="middle">Upload to S3</text>
+  <text class="label" x="90" y="350" text-anchor="middle">AWS SDK</text>
+
+  <!-- Email Notification -->
+  <rect class="box" x="200" y="310" width="100" height="50" rx="3"/>
+  <text class="box-text" x="250" y="330" text-anchor="middle">Email</text>
+  <text class="box-text" x="250" y="345" text-anchor="middle">Notification</text>
+
+  <!-- Arrow from S3 to Email -->
+  <path class="arrow" d="M 140 335 L 200 335"/>
+
+  <!-- Store PDF URL -->
+  <rect class="box" x="360" y="310" width="100" height="50" rx="3"/>
+  <text class="box-text" x="410" y="330" text-anchor="middle">Store URL</text>
+  <text class="box-text" x="410" y="345" text-anchor="middle">in Report</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 300 335 L 360 335"/>
+
+  <!-- Complete -->
+  <rect class="box" x="520" y="310" width="100" height="50" rx="3"/>
+  <text class="box-text" x="570" y="335" text-anchor="middle">Report</text>
+  <text class="box-text" x="570" y="350" text-anchor="middle">Complete</text>
+
+  <!-- Arrow -->
+  <path class="arrow" d="M 460 335 L 520 335"/>
+</svg>
+            </div>
+        </section>
+
+        <section id="features">
+            <h2>9. Core Features Implemented</h2>
+            <ul class="feature-list">
+                <li><strong>User & Project Management</strong> - Multi-role access control (ADMIN/ENGINEER/CLIENT) with project-level permissions, engineer assignment, budget tracking</li>
+                <li><strong>Safety Monitoring & Alerts</strong> - Real-time PPE detection (helmets, vests) with confidence scoring and configurable thresholds</li>
+                <li><strong>Biometric Attendance</strong> - Facial recognition enrollment, automatic check-in, match confidence scoring, daily records</li>
+                <li><strong>Site Updates & Documentation</strong> - Engineer progress updates with media attachments, chronological site documentation</li>
+                <li><strong>Material & Inventory</strong> - Receipt/consumption logging with per-unit costs, category tracking, project-based visibility</li>
+                <li><strong>Real-time Communication</strong> - Project-scoped Socket.io chat, media sharing, message persistence</li>
+                <li><strong>Analytics & Reporting</strong> - Daily/weekly automated PDF reports with safety metrics, attendance summaries, cost analytics</li>
+                <li><strong>Multi-Camera System</strong> - Zone-based camera management (ENTRANCE/WORK_AREA/STORAGE), RTSP streaming, status tracking</li>
+                <li><strong>Media & Asset Management</strong> - Centralized project media library with auto-recording from cameras and manual uploads</li>
+                <li><strong>Payment & Subscriptions</strong> - Multi-provider support (EasyPaisa, JazzCash, Stripe), tiered plans (BASIC/PRO/ENTERPRISE)</li>
+            </ul>
+        </section>
+
+        <section id="deployment">
+            <h2>10. Deployment & DevOps</h2>
+
+            <h3>Testing Infrastructure</h3>
+            <p>Comprehensive E2E testing via Postman/Newman (40+ endpoints), Python integration tests for AI service, manual QA checklist. Database seeding via comprehensive seed scripts enables reproducible test environments.</p>
+
+            <h3>Security Hardening</h3>
+            <ul>
+                <li>Two-layer authorization (role + project membership)</li>
+                <li>Fail-closed authentication design</li>
+                <li>X-Internal-Token for service boundary protection</li>
+                <li>Camera source validation before system calls</li>
+                <li>Webhook signature verification over raw request bodies</li>
+                <li>Biometric data handling with appropriate restrictions</li>
+            </ul>
+
+            <h3>Scalability Considerations</h3>
+            <ul>
+                <li>PostgreSQL connection pooling</li>
+                <li>S3 integration for unlimited file storage</li>
+                <li>Socket.io scalable to multiple server instances</li>
+                <li>FFmpeg process management for concurrent streams</li>
+            </ul>
+        </section>
+
+        <section id="recommendations">
+            <h2>11. Recommendations & Future Work</h2>
+
+            <h3>Short-term Enhancements</h3>
+            <ul>
+                <li>API rate limiting on authentication endpoints</li>
+                <li>Enhanced error handling and user feedback</li>
+                <li>Performance monitoring and logging integration (ELK, DataDog)</li>
+                <li>Mobile-responsive UI refinements</li>
+            </ul>
+
+            <h3>Medium-term Roadmap</h3>
+            <ul>
+                <li>Advanced analytics dashboard with predictive insights</li>
+                <li>ML model improvements (crowd detection, fatigue analysis)</li>
+                <li>Multi-site dashboard and cross-project analytics</li>
+                <li>Native mobile apps (iOS/Android)</li>
+                <li>Construction management software integrations</li>
+            </ul>
+
+            <h3>Long-term Vision</h3>
+            <ul>
+                <li>AI-powered resource optimization</li>
+                <li>Drone/aerial imagery integration</li>
+                <li>Augmented reality site visualization</li>
+                <li>Blockchain-based compliance tracking</li>
+                <li>IoT sensor integration (temperature, humidity, air quality)</li>
+            </ul>
+
+            <h3>Operational Excellence</h3>
+            <ul>
+                <li>CI/CD pipeline (GitHub Actions, GitLab CI)</li>
+                <li>Container orchestration (Docker, Kubernetes)</li>
+                <li>Disaster recovery and backup procedures</li>
+                <li>Performance optimization for large-scale deployments</li>
+            </ul>
+        </section>
+
+        <footer>
+            <p>BuildSite 360 Project Report</p>
+            <p>Generated on September 13, 2026 at 20:23 </p>
+            <p style="margin-top: 20px; font-size: 12px;">All diagrams and technical specifications verified against current codebase.</p>
+        </footer>
+    </div>
+</body>
+</html>

@@ -3,8 +3,16 @@
 One worker task per camera. Each task samples frames at a low rate, runs the
 fine-tuned YOLOv8 model, and reports violations back to the Node API.
 
-REQUIRES `models/best.pt`, which does not exist yet — see TRAINING.md. Without it
-the detector refuses to start rather than silently reporting nothing.
+NOT the active detection pipeline — `safety_stream.py` (run via `main.py`) is
+what actually serves the live-monitoring UI, and additionally attributes each
+violation to an enrolled worker via DeepFace face matching, which the current
+`/api/internal/safety-alert` endpoint now requires (see post_alert() below).
+This module is kept as a minimal, single-responsibility reference for the
+detection half of that pipeline; it will not successfully post alerts against
+today's server without also implementing worker attribution.
+
+`models/best.pt` now exists (see TRAINING.md) — it did not when this file was
+first written, hence load_model()'s explicit check below.
 
 Run standalone:
     python -m services.safety_detector --camera-id <id> --rtsp rtsp://...
@@ -14,8 +22,10 @@ import argparse
 import base64
 import logging
 import os
+import tempfile
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import cv2
 import requests
@@ -34,10 +44,15 @@ SAMPLE_FPS = 1.5
 RECONNECT_DELAY_SECONDS = 5
 MAX_CONSECUTIVE_FAILURES = 10
 
-# The model detects PPE that IS present ("helmet", "vest"). A violation is the
-# ABSENCE of that PPE on a detected person, which is not itself a class — see
-# detect_violations() for how absence is inferred.
-PPE_CLASSES = {"helmet": "NO_HELMET", "vest": "NO_VEST"}
+# The trained model (see TRAINING.md) has three classes: "helmet", "vest", and
+# "head". "head" is an explicit negative class — a bare head with no helmet —
+# so NO_HELMET can be read straight off a "head" detection, the same way
+# safety_stream.py's HAZARD_CLASSES treats it. There is no equivalent negative
+# class for vests: that would need a `person` class plus containment logic (a
+# person box with no `vest` box inside it), which this dataset does not have.
+# NO_VEST stays undetectable until a "no-vest"/bare-torso class is labeled and
+# the model is retrained — a real, unresolved dataset gap, not a bug here.
+PPE_CLASSES = {"head": "NO_HELMET"}
 
 
 @dataclass
@@ -57,37 +72,32 @@ def load_model(model_path=MODEL_PATH):
     return YOLO(model_path)
 
 
-def detect_violations(model, frame):
+def detect_violations(model, frame, frame_path):
     """Return violations found in a single frame.
 
-    IMPORTANT — this depends on what the trained model's classes actually are:
+    ultralytics==8.0.0 (pinned in requirements.txt) has two version-specific
+    quirks that safety_stream.py already works around — mirrored here:
 
-    * If the model was trained with only positive classes (`helmet`, `vest`), then
-      a violation must be inferred: detect people, then check whether each person's
-      box contains the corresponding PPE. That requires a `person` class, which the
-      two-class model from TRAINING.md does NOT have.
+    * `model.predict()` only accepts a real file path as `source`, not an
+      in-memory ndarray (a raw multi-element array's truthiness is ambiguous
+      internally and raises ValueError) — hence writing `frame` to
+      `frame_path` before inference.
+    * `predict()` returns a plain [N, 6] tensor (x1, y1, x2, y2, conf, cls) per
+      image here, not a Results object with `.boxes`/`.names` — those don't
+      exist in this pinned version.
 
-    * If the model was trained with explicit negative classes (`no-helmet`,
-      `no-vest`), violations are read straight off the detections.
-
-    The two-class pipeline in yolov8_training.ipynb produces the FIRST case, so this
-    function currently cannot infer absence on its own. Resolve this before relying
-    on the detector: either retrain including `person` (and add containment logic
-    here), or retrain with explicit negative classes and simplify this to a lookup.
-    Until then it only reports classes it can name with certainty.
+    See PPE_CLASSES above for which detected classes count as violations, and
+    why NO_VEST can't be one of them yet.
     """
-    results = model.predict(source=frame, conf=CONFIDENCE_THRESHOLD, verbose=False)[0]
+    cv2.imwrite(str(frame_path), frame)
+    detected = model.predict(source=str(frame_path), conf=CONFIDENCE_THRESHOLD, verbose=False)[0]
+    names = getattr(model, "names", None) or getattr(model.model, "names", None) or {}
 
     violations = []
-    for box in results.boxes:
-        label = results.names[int(box.cls)].lower()
-        confidence = float(box.conf)
-
-        # Explicit negative classes, if the model provides them.
-        if label in ("no-helmet", "no_helmet", "nohelmet"):
-            violations.append(Violation("NO_HELMET", confidence))
-        elif label in ("no-vest", "no_vest", "novest"):
-            violations.append(Violation("NO_VEST", confidence))
+    for x1, y1, x2, y2, confidence, cls_id in detected.tolist():
+        label = str(names.get(int(cls_id), int(cls_id))).strip().lower()
+        if label in PPE_CLASSES:
+            violations.append(Violation(PPE_CLASSES[label], float(confidence)))
 
     return violations
 
@@ -136,42 +146,49 @@ def watch_camera(camera_id, rtsp_url, stop_event=None):
     model = load_model()
     interval = 1.0 / SAMPLE_FPS
 
-    while stop_event is None or not stop_event.is_set():
-        capture = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
+    # One inference-scratch file per camera, matching safety_stream.py's fix
+    # for the same source= constraint (see detect_violations above).
+    frame_path = Path(tempfile.gettempdir()) / f"safety_detector_{camera_id}.jpg"
 
-        if not capture.isOpened():
-            log.warning("Cannot open %s; retrying in %ss", rtsp_url, RECONNECT_DELAY_SECONDS)
-            capture.release()
-            time.sleep(RECONNECT_DELAY_SECONDS)
-            continue
-
-        log.info("Watching camera %s", camera_id)
-        failures = 0
-
+    try:
         while stop_event is None or not stop_event.is_set():
-            grabbed, frame = capture.read()
+            capture = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
 
-            if not grabbed:
-                failures += 1
-                if failures >= MAX_CONSECUTIVE_FAILURES:
-                    log.warning("Lost stream for %s; reconnecting.", camera_id)
-                    break
-                time.sleep(0.5)
+            if not capture.isOpened():
+                log.warning("Cannot open %s; retrying in %ss", rtsp_url, RECONNECT_DELAY_SECONDS)
+                capture.release()
+                time.sleep(RECONNECT_DELAY_SECONDS)
                 continue
 
+            log.info("Watching camera %s", camera_id)
             failures = 0
 
-            try:
-                for violation in detect_violations(model, frame):
-                    post_alert(camera_id, violation, frame)
-            except Exception:
-                log.exception("Inference failed on a frame; continuing.")
+            while stop_event is None or not stop_event.is_set():
+                grabbed, frame = capture.read()
 
-            time.sleep(interval)
+                if not grabbed:
+                    failures += 1
+                    if failures >= MAX_CONSECUTIVE_FAILURES:
+                        log.warning("Lost stream for %s; reconnecting.", camera_id)
+                        break
+                    time.sleep(0.5)
+                    continue
 
-        capture.release()
-        if stop_event is None or not stop_event.is_set():
-            time.sleep(RECONNECT_DELAY_SECONDS)
+                failures = 0
+
+                try:
+                    for violation in detect_violations(model, frame, frame_path):
+                        post_alert(camera_id, violation, frame)
+                except Exception:
+                    log.exception("Inference failed on a frame; continuing.")
+
+                time.sleep(interval)
+
+            capture.release()
+            if stop_event is None or not stop_event.is_set():
+                time.sleep(RECONNECT_DELAY_SECONDS)
+    finally:
+        frame_path.unlink(missing_ok=True)
 
 
 def main():

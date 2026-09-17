@@ -28,7 +28,10 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MODEL_NAME = "ArcFace"
-DETECTOR_BACKEND = "retinaface"
+# "opencv", not "retinaface": retinaface crashes outright in this project's
+# actual installed combo (deepface==0.0.71 + retina-face==0.0.18 + TF 2.15) -
+# see endpoints/enrollment.py for the full explanation.
+DETECTOR_BACKEND = "opencv"
 DEFAULT_THRESHOLD = 0.68
 
 
@@ -80,7 +83,11 @@ def embed_photo(image_path):
     from deepface import DeepFace
 
     try:
-        results = DeepFace.represent(
+        # deepface==0.0.71's represent() returns the embedding vector itself
+        # (a flat list of floats) for the one face it detects/crops - there is
+        # no facial_area/multi-face list to pick the largest from in this
+        # version, unlike later deepface releases.
+        embedding = DeepFace.represent(
             img_path=str(image_path),
             model_name=MODEL_NAME,
             detector_backend=DETECTOR_BACKEND,
@@ -89,13 +96,7 @@ def embed_photo(image_path):
     except ValueError:
         return None
 
-    if not results:
-        return None
-
-    # If several faces are present, use the largest detected region — for a
-    # check-in camera that is almost always the person standing closest.
-    largest = max(results, key=lambda r: r["facial_area"]["w"] * r["facial_area"]["h"])
-    vector = np.array(largest["embedding"], dtype=np.float64)
+    vector = np.array(embedding, dtype=np.float64)
     return vector / np.linalg.norm(vector)
 
 

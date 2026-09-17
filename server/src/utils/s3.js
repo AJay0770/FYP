@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { PutObjectCommand } = require('@aws-sdk/client-s3');
+const { PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const s3Client = require('../config/s3');
 
@@ -47,4 +47,21 @@ async function uploadBuffer(buffer, fileName, contentType) {
   return { key, url: getPublicUrl(key) };
 }
 
-module.exports = { generatePresignedUrl, getPublicUrl, uploadBuffer };
+// Reverses getPublicUrl() above - both must stay in sync with the same
+// `${endpoint}/${BUCKET}/${key}` shape. Returns null for a URL that doesn't
+// match (e.g. one predating a stored asset's current AWS_S3_ENDPOINT), since
+// there's no key to delete in that case.
+function keyFromPublicUrl(url) {
+  const prefix = `${(process.env.AWS_S3_ENDPOINT || '').replace(/\/$/, '')}/${BUCKET}/`;
+  return typeof url === 'string' && url.startsWith(prefix) ? url.slice(prefix.length) : null;
+}
+
+// Best-effort deletion of the underlying object (used when a MediaAsset row
+// is deleted). Callers should treat failure as non-fatal - the database row
+// is the source of truth, not the object's presence in storage.
+async function deleteObject(key) {
+  if (!key) return;
+  await s3Client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+}
+
+module.exports = { generatePresignedUrl, getPublicUrl, uploadBuffer, deleteObject, keyFromPublicUrl };

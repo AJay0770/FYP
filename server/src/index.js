@@ -53,6 +53,7 @@ app.use('/api/projects/:id/workers', require('./routes/workers'));
 app.use('/api/projects/:id/attendance', require('./routes/attendance'));
 app.use('/api/projects/:id/analytics', require('./routes/analytics'));
 app.use('/api/projects/:id/reports', require('./routes/reports'));
+app.use('/api/projects/:id/media', require('./routes/media'));
 
 // Camera streaming/recording are addressed by camera id, not nested under project.
 app.use('/api/cameras', require('./routes/cameraStream'));
@@ -67,6 +68,7 @@ app.use('/api', safetyDetection.router);
 // Service-to-service endpoints (AI service -> API), guarded by X-Internal-Token.
 app.use('/api/internal', require('./routes/internal/safety'));
 app.use('/api/internal', require('./routes/internal/attendance'));
+app.use('/api/internal', require('./routes/internal/workers'));
 app.use('/api/internal', safetyDetection.internalRouter);
 
 // Billing

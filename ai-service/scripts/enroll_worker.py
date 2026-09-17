@@ -18,7 +18,11 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MODEL_NAME = "ArcFace"
-DETECTOR_BACKEND = "retinaface"
+# "opencv", not "retinaface": retinaface crashes outright in this project's
+# actual installed combo (deepface==0.0.71 + retina-face==0.0.18 + TF 2.15) -
+# see endpoints/enrollment.py for the full explanation. Less accurate at
+# angles/low light, but the only backend verified working here.
+DETECTOR_BACKEND = "opencv"
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 MIN_RECOMMENDED_PHOTOS = 5
 
@@ -40,7 +44,11 @@ def embed_photo(image_path):
     from deepface import DeepFace
 
     try:
-        results = DeepFace.represent(
+        # deepface==0.0.71's represent() returns the embedding vector itself
+        # (a flat list of floats), not a list of per-face dicts - there is no
+        # multi-face count to check in this version, and no facial_area to
+        # pick the largest from.
+        embedding = DeepFace.represent(
             img_path=str(image_path),
             model_name=MODEL_NAME,
             detector_backend=DETECTOR_BACKEND,
@@ -50,13 +58,7 @@ def embed_photo(image_path):
         # DeepFace raises ValueError when no face is detected.
         return None
 
-    if not results:
-        return None
-    if len(results) > 1:
-        print(f"  {image_path.name}: {len(results)} faces found, skipping (ambiguous)")
-        return None
-
-    return np.array(results[0]["embedding"], dtype=np.float64)
+    return np.array(embedding, dtype=np.float64)
 
 
 def main():

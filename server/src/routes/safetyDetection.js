@@ -309,7 +309,10 @@ router.get('/detections/latest', authenticateToken, async (req, res) => {
         where: { projectId: target.projectId, ...(cameraId ? { cameraId } : {}) },
         orderBy: { createdAt: 'desc' },
         take: ALERT_HISTORY_LIMIT,
-        include: { camera: { select: { id: true, name: true, zone: true } } },
+        include: {
+          camera: { select: { id: true, name: true, zone: true } },
+          worker: { select: { id: true, name: true, employeeId: true } },
+        },
       });
     }
   } catch (err) {
@@ -324,7 +327,10 @@ router.get('/detections/latest', authenticateToken, async (req, res) => {
     sourceType: target.type,
     aiService,
     detections: snapshot?.detections ?? [],
-    counts: snapshot?.counts ?? { hardhat: 0, construction_worker: 0, ppe: 0, no_ppe: 0 },
+    // Matches the trained model's real classes (ai-service/TRAINING.md): `head`
+    // is a bare head with no helmet - the actual NO_HELMET violation signal,
+    // not a separate concept. There is no negative class for vests yet.
+    counts: snapshot?.counts ?? { helmet: 0, vest: 0, head: 0 },
     hazardCount: snapshot?.hazardCount ?? 0,
     frameSize: snapshot?.frameSize ?? null,
     modelLoaded: snapshot?.modelLoaded ?? false,

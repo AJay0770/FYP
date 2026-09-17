@@ -1,11 +1,12 @@
 import { useEffect, useState, useContext } from 'react'
 import api from '../api/axios'
 import { AuthContext } from '../context/AuthContext'
-import { Badge, Button, Card, statusVariant } from '../components/ui'
+import { Badge, Button, Card, Row, statusVariant } from '../components/ui'
 import ChatPanel from '../components/ChatPanel'
 import SafetyAlertsPanel from '../components/SafetyAlertsPanel'
 import SiteUpdatesPanel from '../components/SiteUpdatesPanel'
 import MaterialsPanel from '../components/MaterialsPanel'
+import MediaPanel from '../components/MediaPanel'
 import LiveMonitoringPage from './LiveMonitoringPage'
 import LiveMonitoring from './LiveMonitoring'
 import AttendancePage from './AttendancePage'
@@ -17,6 +18,7 @@ export default function ProjectDetailPage({ projectId, onBack }) {
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [tab, setTab] = useState('overview') // overview | media
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -70,15 +72,40 @@ export default function ProjectDetailPage({ projectId, onBack }) {
         <Badge variant={statusVariant(project.status)} dot>{project.status.replace('_', ' ')}</Badge>
       </div>
 
-      <AnalyticsDashboard projectId={projectId} />
-      <LiveMonitoringPage projectId={projectId} />
-      <LiveMonitoring projectId={projectId} />
-      <SafetyAlertsPanel projectId={projectId} />
-      <SiteUpdatesPanel projectId={projectId} />
-      <MaterialsPanel projectId={projectId} />
-      <AttendancePage projectId={projectId} />
-      <ChatPanel projectId={projectId} token={token} />
-      <ReportsPage projectId={projectId} />
+      <Row style={{ marginBottom: 'var(--space-lg)' }}>
+        <Button
+          size="sm"
+          variant={tab === 'overview' ? 'primary' : 'secondary'}
+          onClick={() => setTab('overview')}
+          aria-pressed={tab === 'overview'}
+        >
+          Overview
+        </Button>
+        <Button
+          size="sm"
+          variant={tab === 'media' ? 'primary' : 'secondary'}
+          onClick={() => setTab('media')}
+          aria-pressed={tab === 'media'}
+        >
+          Media
+        </Button>
+      </Row>
+
+      {tab === 'overview' && (
+        <>
+          <AnalyticsDashboard projectId={projectId} />
+          <LiveMonitoringPage projectId={projectId} />
+          <LiveMonitoring projectId={projectId} />
+          <SafetyAlertsPanel projectId={projectId} />
+          <SiteUpdatesPanel projectId={projectId} />
+          <MaterialsPanel projectId={projectId} />
+          <AttendancePage projectId={projectId} />
+          <ChatPanel projectId={projectId} token={token} />
+          <ReportsPage projectId={projectId} />
+        </>
+      )}
+
+      {tab === 'media' && <MediaPanel projectId={projectId} token={token} />}
     </div>
   )
 }

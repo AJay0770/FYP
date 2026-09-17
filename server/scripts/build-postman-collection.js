@@ -205,9 +205,40 @@ materialItems.push(
             '});'] }),
   test('Create material as assigned ENGINEER', 'POST', `/projects/${V('project1')}/materials`, { auth: 'engineer1Token', body: { name: 'Sand', category: 'Aggregate', entryType: 'RECEIVED', quantity: 50, unitCost: 3, date: '2026-06-01' }, expect: 201 }),
   test('Create material as unassigned ENGINEER', 'POST', `/projects/${V('project1')}/materials`, { auth: 'engineer2Token', body: { name: 'Sand', category: 'X', entryType: 'RECEIVED', quantity: 1, unitCost: 1, date: '2026-06-01' }, expect: 403 }),
-  test('Create material as ADMIN (engineer-only)', 'POST', `/projects/${V('project1')}/materials`, { auth: 'adminToken', body: { name: 'Sand', category: 'X', entryType: 'RECEIVED', quantity: 1, unitCost: 1, date: '2026-06-01' }, expect: 403 }),
+  test('Create material as ADMIN', 'POST', `/projects/${V('project1')}/materials`, { auth: 'adminToken', body: { name: 'Sand', category: 'X', entryType: 'RECEIVED', quantity: 1, unitCost: 1, date: '2026-06-01' }, expect: 201 }),
   test('Create material invalid entryType', 'POST', `/projects/${V('project1')}/materials`, { auth: 'engineer1Token', body: { name: 'S', category: 'X', entryType: 'STOLEN', quantity: 1, unitCost: 1, date: '2026-06-01' }, expect: 400 }),
-  test('Create material missing fields', 'POST', `/projects/${V('project1')}/materials`, { auth: 'engineer1Token', body: { name: 'S' }, expect: 400 })
+  test('Create material missing fields', 'POST', `/projects/${V('project1')}/materials`, { auth: 'engineer1Token', body: { name: 'S' }, expect: 400 }),
+  // Update/delete need a real row to act on, created and captured mid-run - the
+  // fixed seed IDs don't cover materials since these tests mutate/remove one.
+  test('Create material for update/delete', 'POST', `/projects/${V('project1')}/materials`, { auth: 'engineer1Token', body: { name: 'Postman Gravel', category: 'Aggregate', entryType: 'RECEIVED', quantity: 10, unitCost: 2, date: '2026-06-01' }, expect: 201,
+    extra: ['pm.collectionVariables.set("materialId", pm.response.json().id);'] }),
+  test('Update material as unassigned ENGINEER', 'PUT', `/projects/${V('project1')}/materials/${V('materialId')}`, { auth: 'engineer2Token', body: { name: 'X', category: 'X', entryType: 'RECEIVED', quantity: 1, unitCost: 1, date: '2026-06-01' }, expect: 403 }),
+  test('Update material as ADMIN', 'PUT', `/projects/${V('project1')}/materials/${V('materialId')}`, { auth: 'adminToken', body: { name: 'X', category: 'X', entryType: 'RECEIVED', quantity: 1, unitCost: 1, date: '2026-06-01' }, expect: 200 }),
+  test('Update material as CLIENT', 'PUT', `/projects/${V('project1')}/materials/${V('materialId')}`, { auth: 'client1Token', body: { name: 'X', category: 'X', entryType: 'RECEIVED', quantity: 1, unitCost: 1, date: '2026-06-01' }, expect: 403 }),
+  test('Update material missing fields', 'PUT', `/projects/${V('project1')}/materials/${V('materialId')}`, { auth: 'engineer1Token', body: { name: 'X' }, expect: 400 }),
+  test('Update material invalid entryType', 'PUT', `/projects/${V('project1')}/materials/${V('materialId')}`, { auth: 'engineer1Token', body: { name: 'X', category: 'X', entryType: 'STOLEN', quantity: 1, unitCost: 1, date: '2026-06-01' }, expect: 400 }),
+  test('Update material nonexistent id', 'PUT', `/projects/${V('project1')}/materials/00000000-0000-4000-8000-999999999999`, { auth: 'engineer1Token', body: { name: 'X', category: 'X', entryType: 'RECEIVED', quantity: 1, unitCost: 1, date: '2026-06-01' }, expect: 404 }),
+  test('Update material as assigned ENGINEER', 'PUT', `/projects/${V('project1')}/materials/${V('materialId')}`, { auth: 'engineer1Token', body: { name: 'Postman Gravel (updated)', category: 'Aggregate', entryType: 'RECEIVED', quantity: 15, unitCost: 2.5, date: '2026-06-02' }, expect: 200,
+    extra: ['pm.test("reflects the update", function () { pm.expect(pm.response.json().name).to.eql("Postman Gravel (updated)"); });'] }),
+  test('Delete material as unassigned ENGINEER', 'DELETE', `/projects/${V('project1')}/materials/${V('materialId')}`, { auth: 'engineer2Token', expect: 403 }),
+  test('Delete material as CLIENT', 'DELETE', `/projects/${V('project1')}/materials/${V('materialId')}`, { auth: 'client1Token', expect: 403 }),
+  test('Delete material nonexistent id', 'DELETE', `/projects/${V('project1')}/materials/00000000-0000-4000-8000-999999999999`, { auth: 'engineer1Token', expect: 404 }),
+  test('Delete material as assigned ENGINEER', 'DELETE', `/projects/${V('project1')}/materials/${V('materialId')}`, { auth: 'engineer1Token', expect: 204 }),
+  test('Get deleted material is gone', 'GET', `/projects/${V('project1')}/materials`, { auth: 'adminToken', expect: 200,
+    extra: ['pm.test("deleted material no longer listed", function () {',
+            '  const ids = pm.response.json().map(function (m) { return m.id; });',
+            '  pm.expect(ids).to.not.include(pm.collectionVariables.get("materialId"));',
+            '});'] }),
+  // A second, disposable row - ADMIN's delete access is otherwise untested,
+  // and reusing materialId above would break the ENGINEER-delete lifecycle.
+  test('Create material for admin-delete test', 'POST', `/projects/${V('project1')}/materials`, { auth: 'engineer1Token', body: { name: 'Postman Rebar', category: 'Steel', entryType: 'RECEIVED', quantity: 5, unitCost: 4, date: '2026-06-01' }, expect: 201,
+    extra: ['pm.collectionVariables.set("materialId2", pm.response.json().id);'] }),
+  test('Delete material as ADMIN', 'DELETE', `/projects/${V('project1')}/materials/${V('materialId2')}`, { auth: 'adminToken', expect: 204 }),
+  test('Get admin-deleted material is gone', 'GET', `/projects/${V('project1')}/materials`, { auth: 'adminToken', expect: 200,
+    extra: ['pm.test("admin-deleted material no longer listed", function () {',
+            '  const ids = pm.response.json().map(function (m) { return m.id; });',
+            '  pm.expect(ids).to.not.include(pm.collectionVariables.get("materialId2"));',
+            '});'] })
 );
 folders.push({ name: '04 Materials', item: materialItems });
 
@@ -282,12 +313,17 @@ safetyItems.push(
             '    pm.expect(new Date(a[i].createdAt).getTime()).to.be.at.most(new Date(a[i-1].createdAt).getTime());',
             '  }',
             '});'] }),
-  test('Internal safety-alert without token', 'POST', '/internal/safety-alert', { body: { cameraId: V('cameraWorkArea'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 401 }),
-  test('Internal safety-alert wrong token', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': 'wrong' }, body: { cameraId: V('cameraWorkArea'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 401 }),
-  test('Internal safety-alert with user JWT', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('adminToken') }, body: { cameraId: V('cameraWorkArea'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 401 }),
-  test('Internal safety-alert invalid violationType', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), violationType: 'NO_BOOTS', confidence: 0.9 }, expect: 400 }),
-  test('Internal safety-alert confidence out of range', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), violationType: 'NO_HELMET', confidence: 5 }, expect: 400 }),
-  test('Internal safety-alert unknown camera', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: '00000000-0000-4000-8000-999999999999', violationType: 'NO_HELMET', confidence: 0.9 }, expect: 404 }),
+  test('Internal safety-alert without token', 'POST', '/internal/safety-alert', { body: { cameraId: V('cameraWorkArea'), workerId: V('worker1'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 401 }),
+  test('Internal safety-alert wrong token', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': 'wrong' }, body: { cameraId: V('cameraWorkArea'), workerId: V('worker1'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 401 }),
+  test('Internal safety-alert with user JWT', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('adminToken') }, body: { cameraId: V('cameraWorkArea'), workerId: V('worker1'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 401 }),
+  test('Internal safety-alert invalid violationType', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), workerId: V('worker1'), violationType: 'NO_BOOTS', confidence: 0.9 }, expect: 400 }),
+  test('Internal safety-alert confidence out of range', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), workerId: V('worker1'), violationType: 'NO_HELMET', confidence: 5 }, expect: 400 }),
+  test('Internal safety-alert unknown camera', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: '00000000-0000-4000-8000-999999999999', workerId: V('worker1'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 404 }),
+  // A violation can only ever be recorded against a real, enrolled worker in
+  // the camera's own project (see safety_stream.py's per-worker face
+  // matching) - not just any id string the caller supplies.
+  test('Internal safety-alert unknown worker', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), workerId: '00000000-0000-4000-8000-999999999999', violationType: 'NO_HELMET', confidence: 0.9 }, expect: 404 }),
+  test('Internal safety-alert missing workerId', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 400 }),
   test('Internal safety-alert missing fields', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea') }, expect: 400 })
 );
 folders.push({ name: '07 Safety', item: safetyItems });
@@ -324,6 +360,37 @@ attendanceItems.push(
   test('Internal attendance duplicate same day', 'POST', '/internal/attendance-record', { headers: { 'X-Internal-Token': V('internalToken') }, body: { workerId: V('worker1'), confidence: 0.9 }, expect: 200,
     extra: ['pm.test("flagged as duplicate (seed already checked in today)", function () {',
             '  pm.expect(pm.response.json().duplicate).to.eql(true);',
+            '});'] }),
+  // Consumed by services/attendance_detector.py (?projectId=) and
+  // safety_stream.py's per-worker violation attribution (?cameraId=, which
+  // Node resolves to the owning project server-side).
+  test('Internal workers without token', 'GET', `/internal/workers?projectId=${V('project1')}`, { expect: 401 }),
+  test('Internal workers wrong token', 'GET', `/internal/workers?projectId=${V('project1')}`, { headers: { 'X-Internal-Token': 'wrong' }, expect: 401 }),
+  test('Internal workers missing projectId and cameraId', 'GET', '/internal/workers', { headers: { 'X-Internal-Token': V('internalToken') }, expect: 400 }),
+  test('Internal workers unknown camera', 'GET', '/internal/workers?cameraId=00000000-0000-4000-8000-999999999999', { headers: { 'X-Internal-Token': V('internalToken') }, expect: 404 }),
+  test('Internal workers by projectId', 'GET', `/internal/workers?projectId=${V('project1')}`, { headers: { 'X-Internal-Token': V('internalToken') }, expect: 200,
+    extra: ['pm.test("includes the seeded worker with a real embedding", function () {',
+            '  const workers = pm.response.json();',
+            '  const w = workers.find(function (x) { return x.id === pm.collectionVariables.get("worker1"); });',
+            '  pm.expect(w, "worker1 present").to.not.be.undefined;',
+            '  pm.expect(w.faceEmbedding).to.be.an("array").that.is.not.empty;',
+            '});'] }),
+  test('Internal workers by cameraId resolves project', 'GET', `/internal/workers?cameraId=${V('cameraWorkArea')}`, { headers: { 'X-Internal-Token': V('internalToken') }, expect: 200,
+    extra: ['pm.test("same result as querying by projectId directly", function () {',
+            '  const workers = pm.response.json();',
+            '  pm.expect(workers.some(function (x) { return x.id === pm.collectionVariables.get("worker1"); })).to.eql(true);',
+            '});'] }),
+  // worker2 is seeded specifically as disposable (no attendance/alert
+  // history) so this lifecycle doesn't disturb worker1's aggregates.
+  test('Delete worker as unassigned ENGINEER', 'DELETE', `/projects/${V('project1')}/workers/${V('worker2')}`, { auth: 'engineer2Token', expect: 403 }),
+  test('Delete worker as CLIENT', 'DELETE', `/projects/${V('project1')}/workers/${V('worker2')}`, { auth: 'client1Token', expect: 403 }),
+  test('Delete worker cross-tenant', 'DELETE', `/projects/${V('project2')}/workers/${V('worker2')}`, { auth: 'adminToken', expect: 404 }),
+  test('Delete worker unknown id', 'DELETE', `/projects/${V('project1')}/workers/00000000-0000-4000-8000-999999999999`, { auth: 'adminToken', expect: 404 }),
+  test('Delete worker as assigned ENGINEER', 'DELETE', `/projects/${V('project1')}/workers/${V('worker2')}`, { auth: 'engineer1Token', expect: 204 }),
+  test('Deleted worker no longer listed', 'GET', `/projects/${V('project1')}/workers`, { auth: 'adminToken', expect: 200,
+    extra: ['pm.test("worker2 is gone", function () {',
+            '  const ids = pm.response.json().map(function (w) { return w.id; });',
+            '  pm.expect(ids).to.not.include(pm.collectionVariables.get("worker2"));',
             '});'] })
 );
 folders.push({ name: '08 Workers & Attendance', item: attendanceItems });
@@ -357,10 +424,63 @@ analyticsItems.push(
 folders.push({ name: '09 Analytics & Reports', item: analyticsItems });
 
 // ---------------------------------------------------------------------------
+// Media
+// ---------------------------------------------------------------------------
+const mediaItems = [];
+READ_SCOPE.forEach(([tok, code, label]) => {
+  mediaItems.push(test(`List media as ${label}`, 'GET', `/projects/${V('project1')}/media`, { auth: tok, expect: code }));
+});
+mediaItems.push(
+  test('Presign as unassigned ENGINEER', 'POST', `/projects/${V('project1')}/media/presign`, { auth: 'engineer2Token', body: { fileName: 'a.jpg', contentType: 'image/jpeg' }, expect: 403 }),
+  test('Presign as CLIENT', 'POST', `/projects/${V('project1')}/media/presign`, { auth: 'client1Token', body: { fileName: 'a.jpg', contentType: 'image/jpeg' }, expect: 403 }),
+  test('Presign as ADMIN', 'POST', `/projects/${V('project1')}/media/presign`, { auth: 'adminToken', body: { fileName: 'a.jpg', contentType: 'image/jpeg' }, expect: 200 }),
+  test('Presign rejects unsupported type', 'POST', `/projects/${V('project1')}/media/presign`, { auth: 'engineer1Token', body: { fileName: 'notes.pdf', contentType: 'application/pdf' }, expect: 400 }),
+  test('Presign rejects oversized', 'POST', `/projects/${V('project1')}/media/presign`, { auth: 'engineer1Token', body: { fileName: 'a.mp4', contentType: 'video/mp4', fileSize: 300000000 }, expect: 400 }),
+  test('Presign missing fields', 'POST', `/projects/${V('project1')}/media/presign`, { auth: 'engineer1Token', body: {}, expect: 400 }),
+  test('Presign valid jpg', 'POST', `/projects/${V('project1')}/media/presign`, { auth: 'engineer1Token', body: { fileName: 'a.jpg', contentType: 'image/jpeg' }, expect: 200 }),
+  // Records a library entry directly against a fixed sample URL rather than
+  // actually uploading a file - this suite only exercises the API contract,
+  // not S3/storage itself (the presign tests above already cover that call).
+  test('Record media as unassigned ENGINEER', 'POST', `/projects/${V('project1')}/media`, { auth: 'engineer2Token', body: { url: 'http://localhost:4569/buildsite-dev/sample.jpg', type: 'IMAGE' }, expect: 403 }),
+  test('Record media as CLIENT', 'POST', `/projects/${V('project1')}/media`, { auth: 'client1Token', body: { url: 'http://localhost:4569/buildsite-dev/sample.jpg', type: 'IMAGE' }, expect: 403 }),
+  test('Record media invalid type', 'POST', `/projects/${V('project1')}/media`, { auth: 'engineer1Token', body: { url: 'http://localhost:4569/buildsite-dev/sample.jpg', type: 'AUDIO' }, expect: 400 }),
+  test('Record media missing fields', 'POST', `/projects/${V('project1')}/media`, { auth: 'engineer1Token', body: { type: 'IMAGE' }, expect: 400 }),
+  test('Record media cross-tenant camera', 'POST', `/projects/${V('project1')}/media`, { auth: 'engineer1Token', body: { url: 'http://localhost:4569/buildsite-dev/sample.jpg', type: 'IMAGE', cameraId: '00000000-0000-4000-8000-999999999999' }, expect: 404 }),
+  test('Record media as assigned ENGINEER', 'POST', `/projects/${V('project1')}/media`, { auth: 'engineer1Token', body: { url: 'http://localhost:4569/buildsite-dev/sample.jpg', type: 'IMAGE', caption: 'Postman sample' }, expect: 201,
+    extra: ['pm.collectionVariables.set("mediaAssetId", pm.response.json().id);',
+            'pm.test("source defaults to MANUAL_UPLOAD", function () { pm.expect(pm.response.json().source).to.eql("MANUAL_UPLOAD"); });'] }),
+  test('New media appears in the list', 'GET', `/projects/${V('project1')}/media`, { auth: 'adminToken', expect: 200,
+    extra: ['pm.test("includes the just-created asset", function () {',
+            '  const ids = pm.response.json().map(function (m) { return m.id; });',
+            '  pm.expect(ids).to.include(pm.collectionVariables.get("mediaAssetId"));',
+            '});'] }),
+  test('Delete media as unassigned ENGINEER', 'DELETE', `/projects/${V('project1')}/media/${V('mediaAssetId')}`, { auth: 'engineer2Token', expect: 403 }),
+  test('Delete media as CLIENT', 'DELETE', `/projects/${V('project1')}/media/${V('mediaAssetId')}`, { auth: 'client1Token', expect: 403 }),
+  test('Delete media unknown id', 'DELETE', `/projects/${V('project1')}/media/00000000-0000-4000-8000-999999999999`, { auth: 'engineer1Token', expect: 404 }),
+  test('Delete media as assigned ENGINEER', 'DELETE', `/projects/${V('project1')}/media/${V('mediaAssetId')}`, { auth: 'engineer1Token', expect: 204 }),
+  test('Deleted media no longer listed', 'GET', `/projects/${V('project1')}/media`, { auth: 'adminToken', expect: 200,
+    extra: ['pm.test("deleted asset is gone", function () {',
+            '  const ids = pm.response.json().map(function (m) { return m.id; });',
+            '  pm.expect(ids).to.not.include(pm.collectionVariables.get("mediaAssetId"));',
+            '});'] }),
+  // A second, disposable asset - ADMIN's delete access is otherwise untested,
+  // and reusing mediaAssetId above would break the ENGINEER-delete lifecycle.
+  test('Record second media for admin-delete test', 'POST', `/projects/${V('project1')}/media`, { auth: 'engineer1Token', body: { url: 'http://localhost:4569/buildsite-dev/sample.jpg', type: 'IMAGE', caption: 'Admin delete target' }, expect: 201,
+    extra: ['pm.collectionVariables.set("mediaAssetId2", pm.response.json().id);'] }),
+  test('Delete media as ADMIN', 'DELETE', `/projects/${V('project1')}/media/${V('mediaAssetId2')}`, { auth: 'adminToken', expect: 204 }),
+  test('Admin-deleted media no longer listed', 'GET', `/projects/${V('project1')}/media`, { auth: 'adminToken', expect: 200,
+    extra: ['pm.test("admin-deleted asset is gone", function () {',
+            '  const ids = pm.response.json().map(function (m) { return m.id; });',
+            '  pm.expect(ids).to.not.include(pm.collectionVariables.get("mediaAssetId2"));',
+            '});'] })
+);
+folders.push({ name: '10 Media', item: mediaItems });
+
+// ---------------------------------------------------------------------------
 // Billing
 // ---------------------------------------------------------------------------
 folders.push({
-  name: '10 Billing',
+  name: '11 Billing',
   item: [
     test('List plans', 'GET', '/billing/plans', { expect: 200,
       extra: ['pm.test("three plans", function () { pm.expect(pm.response.json().length).to.eql(3); });'] }),
@@ -387,7 +507,7 @@ folders.push({
 // Health
 // ---------------------------------------------------------------------------
 folders.push({
-  name: '11 Health',
+  name: '12 Health',
   item: [test('API health', 'GET', '/health', { expect: 200,
     extra: ['pm.test("status ok", function () { pm.expect(pm.response.json().status).to.eql("ok"); });'] })],
 });
@@ -418,7 +538,12 @@ const collection = {
     { key: 'cameraEntrance', value: '00000000-0000-4000-8000-000000000201' },
     { key: 'cameraWorkArea', value: '00000000-0000-4000-8000-000000000202' },
     { key: 'worker1', value: '00000000-0000-4000-8000-000000000301' },
+    { key: 'worker2', value: '00000000-0000-4000-8000-000000000302' },
     { key: 'liveToken', value: '' },
+    { key: 'materialId', value: '' },
+    { key: 'materialId2', value: '' },
+    { key: 'mediaAssetId', value: '' },
+    { key: 'mediaAssetId2', value: '' },
   ],
   item: folders,
 };

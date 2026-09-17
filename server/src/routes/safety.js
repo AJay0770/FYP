@@ -26,7 +26,10 @@ router.get('/', authenticateToken, async (req, res) => {
         orderBy: { createdAt: 'desc' },
         skip: offset,
         take: limit,
-        include: { camera: { select: { id: true, name: true, zone: true } } },
+        include: {
+          camera: { select: { id: true, name: true, zone: true } },
+          worker: { select: { id: true, name: true, employeeId: true } },
+        },
       }),
       prisma.safetyAlert.count({ where: { projectId } }),
     ]);

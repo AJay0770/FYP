@@ -2,15 +2,22 @@ import { useEffect, useRef, useState, useContext } from 'react'
 import api from '../api/axios'
 import socket, { connectSocket } from '../api/socket'
 import { AuthContext } from '../context/AuthContext'
-import { Badge, Button, Card, Input, statusVariant } from './ui'
+import { Badge, Button, Card, Input, Modal, Table, statusVariant } from './ui'
 
 export default function ChatPanel({ projectId, token }) {
   const { user } = useContext(AuthContext)
+  const canAttach = user?.role === 'ADMIN' || user?.role === 'ENGINEER'
   const [messages, setMessages] = useState([])
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const bottomRef = useRef(null)
+
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [mediaAssets, setMediaAssets] = useState([])
+  const [mediaLoading, setMediaLoading] = useState(false)
+  const [mediaError, setMediaError] = useState('')
+  const [attachedMedia, setAttachedMedia] = useState(null)
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -51,10 +58,45 @@ export default function ChatPanel({ projectId, token }) {
 
   const handleSend = (e) => {
     e.preventDefault()
-    if (!content.trim()) return
-    socket.emit('chat:send', { projectId, content })
+    if (!content.trim() && !attachedMedia) return
+    socket.emit('chat:send', { projectId, content: content.trim(), mediaAssetId: attachedMedia?.id })
     setContent('')
+    setAttachedMedia(null)
   }
+
+  const openPicker = async () => {
+    setPickerOpen(true)
+    setMediaError('')
+    setMediaLoading(true)
+    try {
+      const res = await api.get(`/projects/${projectId}/media`)
+      setMediaAssets(res.data)
+    } catch (err) {
+      setMediaError(err.response?.data?.error || 'Failed to load media library')
+    } finally {
+      setMediaLoading(false)
+    }
+  }
+
+  const handlePick = (asset) => {
+    setAttachedMedia(asset)
+    setPickerOpen(false)
+  }
+
+  const pickerColumns = [
+    {
+      key: 'preview',
+      header: '',
+      render: (a) =>
+        a.type === 'IMAGE' ? (
+          <img src={a.url} alt={a.caption || 'media'} style={{ width: 56, height: 42, objectFit: 'cover', borderRadius: 4 }} />
+        ) : (
+          <video src={a.url} style={{ width: 56, height: 42, objectFit: 'cover', borderRadius: 4 }} muted />
+        ),
+    },
+    { key: 'caption', header: 'Caption', render: (a) => a.caption || <span className="ds-muted">—</span> },
+    { key: 'type', header: 'Type' },
+  ]
 
   return (
     <Card title="Project chat" subtitle="Messages are shared with everyone on this project">
@@ -77,8 +119,16 @@ export default function ChatPanel({ projectId, token }) {
                     <span aria-hidden="true">·</span>
                     <time dateTime={m.createdAt}>{new Date(m.createdAt).toLocaleTimeString()}</time>
                   </div>
-                  <div className="chat-message__body">{m.content}</div>
-                  {m.fileUrl && (
+                  {m.content && <div className="chat-message__body">{m.content}</div>}
+                  {m.fileUrl && m.mediaAsset?.type === 'IMAGE' && (
+                    <a href={m.fileUrl} target="_blank" rel="noreferrer">
+                      <img src={m.fileUrl} alt={m.mediaAsset.caption || 'Shared image'} style={{ maxWidth: 220, borderRadius: 'var(--radius-sm, 6px)', display: 'block' }} />
+                    </a>
+                  )}
+                  {m.fileUrl && m.mediaAsset?.type === 'VIDEO' && (
+                    <video src={m.fileUrl} controls style={{ maxWidth: 260, borderRadius: 'var(--radius-sm, 6px)', display: 'block' }} />
+                  )}
+                  {m.fileUrl && !m.mediaAsset && (
                     <a href={m.fileUrl} target="_blank" rel="noreferrer">Attachment</a>
                   )}
                 </div>
@@ -87,6 +137,20 @@ export default function ChatPanel({ projectId, token }) {
             <div ref={bottomRef} />
           </div>
 
+          {attachedMedia && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', marginBottom: 'var(--space-xs)' }}>
+              {attachedMedia.type === 'IMAGE' ? (
+                <img src={attachedMedia.url} alt={attachedMedia.caption || 'media'} style={{ width: 40, height: 30, objectFit: 'cover', borderRadius: 4 }} />
+              ) : (
+                <video src={attachedMedia.url} style={{ width: 40, height: 30, objectFit: 'cover', borderRadius: 4 }} muted />
+              )}
+              <span className="ds-caption">{attachedMedia.caption || 'Attached media'}</span>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setAttachedMedia(null)}>
+                Remove
+              </Button>
+            </div>
+          )}
+
           <form className="chat-form" onSubmit={handleSend}>
             <Input
               label="Message"
@@ -94,12 +158,39 @@ export default function ChatPanel({ projectId, token }) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
-            <Button type="submit" disabled={!content.trim()} style={{ marginTop: 26 }}>
+            {canAttach && (
+              <Button type="button" variant="secondary" onClick={openPicker} style={{ marginTop: 26 }}>
+                Attach media
+              </Button>
+            )}
+            <Button type="submit" disabled={!content.trim() && !attachedMedia} style={{ marginTop: 26 }}>
               Send
             </Button>
           </form>
         </>
       )}
+
+      <Modal
+        open={pickerOpen}
+        title="Attach media from library"
+        onClose={() => setPickerOpen(false)}
+        footer={
+          <Button variant="secondary" onClick={() => setPickerOpen(false)}>
+            Cancel
+          </Button>
+        }
+      >
+        {mediaLoading && <p className="ds-muted">Loading…</p>}
+        {!mediaLoading && mediaError && <p className="ds-field__error" role="alert">{mediaError}</p>}
+        {!mediaLoading && !mediaError && (
+          <Table
+            columns={pickerColumns}
+            rows={mediaAssets}
+            empty="No media in the library yet - upload some from the Media tab first."
+            onRowClick={handlePick}
+          />
+        )}
+      </Modal>
     </Card>
   )
 }

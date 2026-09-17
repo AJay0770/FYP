@@ -28,7 +28,10 @@ log = logging.getLogger("attendance_detector")
 NODE_API_URL = os.getenv("NODE_API_URL", "http://localhost:3000")
 INTERNAL_TOKEN = os.getenv("X_INTERNAL_TOKEN")
 MODEL_NAME = "ArcFace"
-DETECTOR_BACKEND = "retinaface"
+# "opencv", not "retinaface": retinaface crashes outright in this project's
+# actual installed combo (deepface==0.0.71 + retina-face==0.0.18 + TF 2.15) -
+# see ai-service/endpoints/enrollment.py for the full explanation.
+DETECTOR_BACKEND = "opencv"
 
 # Cosine SIMILARITY threshold (higher = more alike), matching scripts/match_face.py.
 # NOTE: DeepFace's published 0.68 for ArcFace is a cosine DISTANCE, equivalent to
@@ -80,7 +83,11 @@ def embed_frame(frame):
     cv2.imwrite(temp_path, frame)
 
     try:
-        results = DeepFace.represent(
+        # deepface==0.0.71's represent() returns the embedding vector itself
+        # (a flat list of floats) for the one face it detects/crops - there is
+        # no facial_area/multi-face list to pick the largest from in this
+        # version, unlike later deepface releases.
+        embedding = DeepFace.represent(
             img_path=temp_path,
             model_name=MODEL_NAME,
             detector_backend=DETECTOR_BACKEND,
@@ -91,11 +98,7 @@ def embed_frame(frame):
     finally:
         os.unlink(temp_path)
 
-    if not results:
-        return None
-
-    largest = max(results, key=lambda r: r["facial_area"]["w"] * r["facial_area"]["h"])
-    vector = np.array(largest["embedding"], dtype=np.float64)
+    vector = np.array(embedding, dtype=np.float64)
     return vector / np.linalg.norm(vector)
 
 

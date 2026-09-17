@@ -38,7 +38,7 @@ export default function SafetyAlertsPanel({ projectId }) {
       setTotal((prev) => prev + 1)
       push({
         variant: 'danger',
-        title: `${alert.violationType.replace('_', ' ')} detected`,
+        title: `${alert.violationType.replace('_', ' ')} detected${alert.worker ? ` — ${alert.worker.name}` : ''}`,
         message: `${alert.camera?.name ?? 'Unknown camera'} · confidence ${Number(alert.confidenceScore).toFixed(2)}`,
       })
     }
@@ -58,6 +58,19 @@ export default function SafetyAlertsPanel({ projectId }) {
     },
     { key: 'camera', header: 'Camera', render: (row) => row.camera?.name || '—' },
     { key: 'zone', header: 'Zone', render: (row) => row.camera?.zone?.replace('_', ' ') || '—' },
+    {
+      key: 'worker',
+      header: 'Worker',
+      render: (row) =>
+        row.worker ? (
+          <span>
+            {row.worker.name}
+            {row.worker.employeeId && <span className="ds-muted"> ({row.worker.employeeId})</span>}
+          </span>
+        ) : (
+          <span className="ds-muted">—</span>
+        ),
+    },
     {
       key: 'confidenceScore',
       header: 'Confidence',

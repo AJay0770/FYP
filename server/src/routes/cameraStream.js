@@ -53,10 +53,10 @@ router.get('/:id/stream', authenticateTokenAllowQuery, async (req, res) => {
 
   let ffmpeg;
   try {
-    ffmpeg = spawnMjpeg(camera.rtspUrl);
+    ffmpeg = spawnMjpeg(camera.rtspUrl, { cameraId: camera.id });
   } catch (err) {
     await setCameraStatus(cameraId, 'OFFLINE');
-    return res.status(502).json({ error: 'Failed to start video pipeline' });
+    return res.status(502).json({ error: err.message || 'Failed to start video pipeline' });
   }
 
   let headersSent = false;

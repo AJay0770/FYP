@@ -6,11 +6,16 @@ const { uploadBuffer } = require('../../utils/s3');
 const { getIO } = require('../../sockets/io');
 
 const VIOLATION_TYPES = ['NO_HELMET', 'NO_VEST'];
-const COOLDOWN_MS = 60_000;
+// 15 minutes, not the old 60s: a violation is attributed to a specific
+// enrolled worker (see safety_stream.py's "Per-worker face matching"), so the
+// cooldown is keyed per worker+violation type, not per camera - the same
+// worker standing bare-headed for a while shouldn't re-alert every minute,
+// but a *different* worker's violation is never suppressed by this one.
+const COOLDOWN_MS = 15 * 60_000;
 const MAX_FRAME_BYTES = 10 * 1024 * 1024; // 10MB decoded
 
 /**
- * Cooldown keyed by `${cameraId}:${violationType}`.
+ * Cooldown keyed by `${workerId}:${violationType}`.
  *
  * In-memory as specified. Two consequences worth knowing:
  *  - a server restart clears it, so one duplicate alert can slip through
@@ -31,10 +36,10 @@ setInterval(() => {
 // POST /api/internal/safety-alert
 router.post('/safety-alert', internalAuth, async (req, res) => {
   try {
-    const { cameraId, violationType, confidence, frameImageBase64 } = req.body;
+    const { cameraId, workerId, violationType, confidence, frameImageBase64 } = req.body;
 
-    if (!cameraId || !violationType || confidence === undefined) {
-      return res.status(400).json({ error: 'cameraId, violationType, and confidence are required' });
+    if (!cameraId || !workerId || !violationType || confidence === undefined) {
+      return res.status(400).json({ error: 'cameraId, workerId, violationType, and confidence are required' });
     }
 
     if (!VIOLATION_TYPES.includes(violationType)) {
@@ -51,7 +56,18 @@ router.post('/safety-alert', internalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Camera not found' });
     }
 
-    const cooldownKey = `${cameraId}:${violationType}`;
+    // A violation is only ever recorded against a real, enrolled worker in
+    // *this* camera's project - never against a bare id string the caller
+    // supplied. This is the enforcement point for "only enrolled workers can
+    // be in violation": the AI service already filters unmatched faces out
+    // before it ever gets here (see safety_stream.py), but the API does not
+    // trust that filtering alone.
+    const worker = await prisma.worker.findUnique({ where: { id: workerId } });
+    if (!worker || worker.projectId !== camera.projectId) {
+      return res.status(404).json({ error: 'Worker not found for this camera\'s project' });
+    }
+
+    const cooldownKey = `${workerId}:${violationType}`;
     const previous = lastAlertAt.get(cooldownKey);
     const now = Date.now();
 
@@ -89,11 +105,15 @@ router.post('/safety-alert', internalAuth, async (req, res) => {
       data: {
         projectId: camera.projectId,
         cameraId,
+        workerId,
         violationType,
         confidenceScore: score,
         frameImageUrl,
       },
-      include: { camera: { select: { id: true, name: true, zone: true } } },
+      include: {
+        camera: { select: { id: true, name: true, zone: true } },
+        worker: { select: { id: true, name: true, employeeId: true } },
+      },
     });
 
     const io = getIO();

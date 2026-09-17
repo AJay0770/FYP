@@ -6,8 +6,8 @@ const { isEngineerAssigned, userHasProjectAccess } = require('../utils/projectAc
 
 const ENTRY_TYPES = ['RECEIVED', 'CONSUMED'];
 
-// POST /api/projects/:id/materials (ENGINEER only, must be assigned)
-router.post('/', authenticateToken, authorizeRole('ENGINEER'), async (req, res) => {
+// POST /api/projects/:id/materials (ADMIN, or ENGINEER assigned to project)
+router.post('/', authenticateToken, authorizeRole('ADMIN', 'ENGINEER'), async (req, res) => {
   try {
     const { id: projectId } = req.params;
     const { name, category, entryType, quantity, unitCost, date } = req.body;
@@ -20,9 +20,11 @@ router.post('/', authenticateToken, authorizeRole('ENGINEER'), async (req, res) 
       return res.status(400).json({ error: 'entryType must be RECEIVED or CONSUMED' });
     }
 
-    const assigned = await isEngineerAssigned(projectId, req.user.userId);
-    if (!assigned) {
-      return res.status(403).json({ error: 'Forbidden: not assigned to this project' });
+    if (req.user.role === 'ENGINEER') {
+      const assigned = await isEngineerAssigned(projectId, req.user.userId);
+      if (!assigned) {
+        return res.status(403).json({ error: 'Forbidden: not assigned to this project' });
+      }
     }
 
     const entry = await prisma.materialEntry.create({
@@ -41,6 +43,74 @@ router.post('/', authenticateToken, authorizeRole('ENGINEER'), async (req, res) 
     res.status(201).json(entry);
   } catch (err) {
     console.error('Create material entry error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /api/projects/:id/materials/:materialId (ADMIN, or ENGINEER assigned to project)
+router.put('/:materialId', authenticateToken, authorizeRole('ADMIN', 'ENGINEER'), async (req, res) => {
+  try {
+    const { id: projectId, materialId } = req.params;
+    const { name, category, entryType, quantity, unitCost, date } = req.body;
+
+    if (!name || !category || !entryType || quantity === undefined || unitCost === undefined || !date) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!ENTRY_TYPES.includes(entryType)) {
+      return res.status(400).json({ error: 'entryType must be RECEIVED or CONSUMED' });
+    }
+
+    if (req.user.role === 'ENGINEER') {
+      const assigned = await isEngineerAssigned(projectId, req.user.userId);
+      if (!assigned) {
+        return res.status(403).json({ error: 'Forbidden: not assigned to this project' });
+      }
+    }
+
+    // updateMany + a projectId filter, not update-by-id: an id alone can't
+    // confirm the entry actually belongs to *this* project, and a plain
+    // update() would happily edit another project's row if the id matched.
+    const { count } = await prisma.materialEntry.updateMany({
+      where: { id: materialId, projectId },
+      data: { name, category, entryType, quantity, unitCost, date: new Date(date) },
+    });
+
+    if (count === 0) {
+      return res.status(404).json({ error: 'Material entry not found' });
+    }
+
+    const entry = await prisma.materialEntry.findUnique({ where: { id: materialId } });
+    res.json(entry);
+  } catch (err) {
+    console.error('Update material entry error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/projects/:id/materials/:materialId (ADMIN, or ENGINEER assigned to project)
+router.delete('/:materialId', authenticateToken, authorizeRole('ADMIN', 'ENGINEER'), async (req, res) => {
+  try {
+    const { id: projectId, materialId } = req.params;
+
+    if (req.user.role === 'ENGINEER') {
+      const assigned = await isEngineerAssigned(projectId, req.user.userId);
+      if (!assigned) {
+        return res.status(403).json({ error: 'Forbidden: not assigned to this project' });
+      }
+    }
+
+    const { count } = await prisma.materialEntry.deleteMany({
+      where: { id: materialId, projectId },
+    });
+
+    if (count === 0) {
+      return res.status(404).json({ error: 'Material entry not found' });
+    }
+
+    res.status(204).end();
+  } catch (err) {
+    console.error('Delete material entry error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

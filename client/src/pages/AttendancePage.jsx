@@ -2,7 +2,7 @@ import { useEffect, useState, useContext } from 'react'
 import api from '../api/axios'
 import { connectSocket } from '../api/socket'
 import { AuthContext } from '../context/AuthContext'
-import { Badge, Button, Card, Input, Row, Table } from '../components/ui'
+import { Badge, Button, Card, Input, Row, Table, ToastRegion, useToasts } from '../components/ui'
 
 const RANGES = ['daily', 'weekly', 'monthly']
 
@@ -29,6 +29,11 @@ export default function AttendancePage({ projectId }) {
   const [enrollError, setEnrollError] = useState('')
   const [enrollSuccess, setEnrollSuccess] = useState('')
 
+  const [workers, setWorkers] = useState([])
+  const [workersError, setWorkersError] = useState('')
+  const [deletingWorkerId, setDeletingWorkerId] = useState(null)
+  const { toasts, push, dismiss } = useToasts()
+
   const canEnroll = user?.role === 'ADMIN' || user?.role === 'ENGINEER'
 
   const loadAttendance = async (selectedRange) => {
@@ -44,9 +49,24 @@ export default function AttendancePage({ projectId }) {
     }
   }
 
+  const loadWorkers = async () => {
+    setWorkersError('')
+    try {
+      const res = await api.get(`/projects/${projectId}/workers`)
+      setWorkers(res.data)
+    } catch (err) {
+      setWorkersError(err.response?.data?.error || 'Failed to load enrolled workers')
+    }
+  }
+
   useEffect(() => {
     if (projectId) loadAttendance(range)
   }, [projectId, range])
+
+  useEffect(() => {
+    if (projectId && canEnroll) loadWorkers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, canEnroll])
 
   useEffect(() => {
     if (!token || !projectId) return
@@ -69,10 +89,26 @@ export default function AttendancePage({ projectId }) {
       setName('')
       setEmployeeId('')
       setPhotos([])
+      await loadWorkers()
     } catch (err) {
       setEnrollError(err.response?.data?.error || 'Enrolment failed')
     } finally {
       setEnrolling(false)
+    }
+  }
+
+  const handleDeleteWorker = async (worker) => {
+    if (!window.confirm(`Remove ${worker.name} (${worker.employeeId})? This also deletes their attendance history.`)) return
+
+    setDeletingWorkerId(worker.id)
+    try {
+      await api.delete(`/projects/${projectId}/workers/${worker.id}`)
+      push({ variant: 'success', title: `${worker.name} removed` })
+      await Promise.all([loadWorkers(), loadAttendance(range)])
+    } catch (err) {
+      push({ variant: 'danger', title: err.response?.data?.error || 'Failed to remove worker' })
+    } finally {
+      setDeletingWorkerId(null)
     }
   }
 
@@ -96,6 +132,26 @@ export default function AttendancePage({ projectId }) {
     },
   ]
 
+  const workerColumns = [
+    { key: 'name', header: 'Worker' },
+    { key: 'employeeId', header: 'Employee ID', render: (r) => r.employeeId || '—' },
+    { key: 'enrolledAt', header: 'Enrolled', render: (r) => new Date(r.enrolledAt).toLocaleDateString() },
+    {
+      key: 'actions',
+      header: '',
+      render: (r) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={deletingWorkerId === r.id}
+          onClick={() => handleDeleteWorker(r)}
+        >
+          {deletingWorkerId === r.id ? 'Removing…' : 'Remove'}
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <Card
       title="Attendance"
@@ -116,6 +172,8 @@ export default function AttendancePage({ projectId }) {
         </Row>
       }
     >
+      <ToastRegion toasts={toasts} onDismiss={dismiss} />
+
       {loading && <p className="ds-muted">Loading attendance…</p>}
       {!loading && error && <p className="ds-field__error" role="alert">{error}</p>}
 
@@ -155,6 +213,10 @@ export default function AttendancePage({ projectId }) {
               {enrolling ? 'Enrolling…' : 'Enrol worker'}
             </Button>
           </form>
+
+          <h4 style={{ marginTop: 'var(--space-lg)' }}>Enrolled workers</h4>
+          {workersError && <p className="ds-field__error" role="alert">{workersError}</p>}
+          <Table columns={workerColumns} rows={workers} empty="No workers enrolled yet" hover={false} />
         </details>
       )}
     </Card>
