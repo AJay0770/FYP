@@ -11,3 +11,8 @@ venv/
 .idea/
 .vscode/settings.json
 .local-infra/
+
+# Training dataset (22k images, ~4.5GB) - too large for git, kept on disk only.
+# See ai-service/TRAINING.md for where it lives and how to regenerate it.
+Dataset/
+*.pt
