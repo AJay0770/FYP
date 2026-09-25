@@ -3,7 +3,7 @@ const router = express.Router();
 const prisma = require('../utils/prisma');
 const { authenticateTokenAllowQuery } = require('../middleware/auth');
 const { userHasProjectAccess } = require('../utils/projectAccess');
-const { spawnMjpeg } = require('../utils/ffmpeg');
+const { spawnMjpeg, takeOverLocalDevice } = require('../utils/ffmpeg');
 
 const BOUNDARY = 'buildsite360frame';
 const JPEG_SOI = Buffer.from([0xff, 0xd8]); // start of image
@@ -50,6 +50,9 @@ router.get('/:id/stream', authenticateTokenAllowQuery, async (req, res) => {
   if (!hasAccess) {
     return res.status(404).json({ error: 'Camera not found' });
   }
+
+  // No-op unless LOCAL_CAMERA_DIRECT is on and this camera is a local webcam.
+  await takeOverLocalDevice(camera.rtspUrl);
 
   let ffmpeg;
   try {

@@ -80,7 +80,10 @@ _load_env()
 
 PASS, FAIL, SKIP, WARN = "PASS", "FAIL", "SKIP", "WARN"
 
-EXPECTED_CLASSES = ["hardhat", "construction_worker", "ppe", "no_ppe"]
+# The trained model's real classes (TRAINING.md), which safety_stream.py's
+# CLASS_NAMES and the UI legend already use - not the originally planned
+# 4-class hardhat/construction_worker/ppe/no_ppe scheme.
+EXPECTED_CLASSES = ["helmet", "vest", "head"]
 ORGANIZED = SERVICE_ROOT / "data" / "datasets" / "organized"
 MODEL_PATH = _resolve_model_path()
 DEFAULT_REPORT = SERVICE_ROOT / "data" / "output" / "verification_report.json"

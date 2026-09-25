@@ -511,6 +511,9 @@ class CameraWorker:
         with self._frame_event:
             self._frame_event.notify_all()
 
+    def join(self, timeout: float | None = None) -> None:
+        self._thread.join(timeout)
+
     @property
     def alive(self) -> bool:
         return self._thread.is_alive() and not self._stop.is_set()
@@ -891,10 +894,56 @@ _workers: dict[str, CameraWorker] = {}
 _workers_lock = threading.Lock()
 
 
-def get_worker(source: str | None = None, camera_id: str | None = None) -> CameraWorker:
-    """Return the worker for `source`, starting it on first use."""
+class DeviceBusy(Exception):
+    """A local device is held by another camera's worker and this caller may not take it."""
+
+
+def get_worker(
+    source: str | None = None, camera_id: str | None = None, claim: bool = True
+) -> CameraWorker:
+    """Return the worker for `source`, starting it on first use.
+
+    A local device (webcam index) can only be opened by one capture at a time
+    on Windows, but several Camera rows - in different projects - may all
+    point at the same laptop webcam. Workers are keyed per camera, so without
+    a hand-over the second camera would sit retrying an "in use" device until
+    the first worker idled out. Instead, a viewer (`claim=True`, i.e. /stream)
+    evicts whichever other camera currently holds the device, so the webcam
+    follows the project being watched. Passive readers (`claim=False`, i.e.
+    the detections poll) never evict: a stale poll from a tab left open on
+    another project must not steal the feed back.
+    """
     resolved = (source or CAMERA_SOURCE).strip()
     key = f"{resolved}|{camera_id or DEFAULT_CAMERA_ID or ''}"
+
+    try:
+        _, source_type = resolve_source(resolved)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    with _workers_lock:
+        worker = _workers.get(key)
+        if worker is not None and worker.alive:
+            return worker
+
+        holders: list[CameraWorker] = []
+        if source_type == "device_index":
+            holders = [
+                w for k, w in _workers.items()
+                if k != key and w.alive and w.source == resolved
+            ]
+            if holders and not claim:
+                raise DeviceBusy(resolved)
+            for k in [k for k, w in _workers.items() if w in holders]:
+                _workers[k].stop()
+                _workers.pop(k, None)
+                log.info("Handing device %s over to camera %s", resolved, camera_id)
+
+    # Wait outside the registry lock for the previous holder to release the
+    # device, otherwise the new worker's first open fails and it only retries
+    # after OPEN_RETRY_SECONDS.
+    for old in holders:
+        old.join(timeout=5.0)
 
     with _workers_lock:
         worker = _workers.get(key)
@@ -1026,7 +1075,24 @@ def detections_latest(
     camera_id: str | None = Query(None, alias="cameraId"),
 ):
     """Current detections, per-class counts and recent alerts for one camera."""
-    worker = get_worker(source, camera_id)
+    try:
+        worker = get_worker(source, camera_id, claim=False)
+    except DeviceBusy as busy:
+        # Same shape as a disconnected worker's snapshot, so callers need no
+        # special case - the device is simply being shown on another camera.
+        return JSONResponse({
+            "source": str(busy),
+            "sourceType": "device_index",
+            "cameraId": camera_id,
+            "connected": False,
+            "modelLoaded": _model is not None,
+            "modelError": _model_error,
+            "lastError": f"device {busy} is in use by another camera",
+            "frameSize": {"width": 0, "height": 0},
+            "detections": [],
+            "counts": {name: 0 for name in get_class_names().values()},
+            "hazardCount": 0,
+        })
     return JSONResponse(worker.snapshot())
 
 
@@ -1061,4 +1127,6 @@ def cameras() -> dict:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host=os.getenv("STREAM_HOST", "0.0.0.0"), port=STREAM_PORT)
+    # Loopback by default: the browser reaches this only through the Node
+    # proxy, which is where access control lives (routes/safetyDetection.js).
+    uvicorn.run(app, host=os.getenv("STREAM_HOST", "127.0.0.1"), port=STREAM_PORT)

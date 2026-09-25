@@ -11,7 +11,9 @@
     "audit:roles": "node scripts/audit-roles.js",
     "verify:infra": "node scripts/verify-infrastructure.js",
     "test:build": "node scripts/build-postman-collection.js",
-    "test:e2e": "node scripts/run-e2e.js"
+    "test:e2e": "node scripts/run-e2e.js",
+    "doctor": "node scripts/doctor.js",
+    "storage": "node scripts/start-storage.js"
   },
   "dependencies": {
     "express": "^4.18.2",

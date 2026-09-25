@@ -97,8 +97,19 @@ router.post('/safety-alert', internalAuth, async (req, res) => {
         return res.status(413).json({ error: 'Frame image too large' });
       }
 
-      const upload = await uploadBuffer(buffer, `alert-${violationType.toLowerCase()}.jpg`, 'image/jpeg');
-      frameImageUrl = upload.url;
+      // The alert row is the auditable record and feeds analytics; the frame
+      // is supporting evidence. If object storage is down, keep the violation
+      // (without an image) rather than failing the request and losing it.
+      try {
+        const upload = await uploadBuffer(buffer, `alert-${violationType.toLowerCase()}.jpg`, 'image/jpeg');
+        frameImageUrl = upload.url;
+      } catch (uploadErr) {
+        // A refused connection is an AggregateError with an empty message.
+        console.error(
+          'Safety alert frame upload failed; saving alert without image:',
+          uploadErr.message || uploadErr.code || uploadErr.name
+        );
+      }
     }
 
     const alert = await prisma.safetyAlert.create({

@@ -121,8 +121,67 @@ const AI_SERVICE_URL = (
  * instead of the device itself. This also means only the AI service ever
  * touches the physical camera, so there is nothing left to contend over.
  */
+/**
+ * Development fallback: LOCAL_CAMERA_DIRECT=true makes ffmpeg open a local
+ * webcam itself instead of going through the AI service.
+ *
+ * The default path above exists because the AI service must own the device
+ * for live detection. But on a machine where the AI service cannot run at
+ * all (it needs Python 3.10/3.11 plus OpenCV), that path leaves a laptop
+ * webcam unviewable. Opting in here trades away detection to get a plain
+ * live view. Do not enable it while safety_stream.py is running: both would
+ * contend for the same device.
+ */
+const LOCAL_CAMERA_DIRECT = process.env.LOCAL_CAMERA_DIRECT === 'true';
+
+// DirectShow addresses devices by name, not index; the index -> name map is
+// read from ffmpeg once at startup, in the same order OpenCV enumerates them.
+let localVideoDevices = [];
+
+function detectLocalVideoDevices() {
+  if (!LOCAL_CAMERA_DIRECT || process.platform !== 'win32') return Promise.resolve(localVideoDevices);
+
+  return new Promise((resolve) => {
+    const probe = spawn(FFMPEG_BIN, ['-hide_banner', '-list_devices', 'true', '-f', 'dshow', '-i', 'dummy']);
+    let output = '';
+    probe.stderr.on('data', (c) => (output += c.toString()));
+    probe.on('error', () => resolve(localVideoDevices));
+    probe.on('close', () => {
+      const names = [];
+      let inAudioSection = false;
+      for (const line of output.split(/\r?\n/)) {
+        // ffmpeg <= 4 groups devices under section headers; 5+ tags each line.
+        if (/DirectShow audio devices/.test(line)) inAudioSection = true;
+        if (/DirectShow video devices/.test(line)) inAudioSection = false;
+        if (/Alternative name/.test(line)) continue;
+        const match = line.match(/\]\s+"([^"]+)"\s*(\((video|audio|none)\))?/);
+        if (!match) continue;
+        const tag = match[3];
+        if (tag ? tag === 'video' : !inAudioSection) names.push(match[1]);
+      }
+      localVideoDevices = names;
+      console.log(`LOCAL_CAMERA_DIRECT: local video devices ${JSON.stringify(names)}`);
+      resolve(names);
+    });
+  });
+}
+
+function directDeviceInputArgs(index) {
+  if (process.platform === 'win32') {
+    const name = localVideoDevices[Number(index)];
+    if (!name) throw new Error(`No local video device at index ${index}`);
+    // Passed as an argv element, never through a shell.
+    return ['-loglevel', 'error', '-f', 'dshow', '-i', `video=${name}`];
+  }
+  return ['-loglevel', 'error', '-f', 'v4l2', '-i', `/dev/video${Number(index)}`];
+}
+
 function buildInputArgs(source, timeoutSeconds, cameraId) {
   const { type } = classifySource(source);
+
+  if (type === 'device_index' && LOCAL_CAMERA_DIRECT) {
+    return directDeviceInputArgs(source);
+  }
 
   if (type === 'device_index') {
     const url = new URL('/stream', AI_SERVICE_URL);
@@ -145,15 +204,53 @@ function buildInputArgs(source, timeoutSeconds, cameraId) {
 /**
  * Spawn ffmpeg to transcode a camera source into a stream of JPEG frames on stdout.
  */
+// In LOCAL_CAMERA_DIRECT mode the ffmpeg process itself holds the webcam, and
+// only one process can. device index -> the ffmpeg currently holding it.
+const localDeviceHolders = new Map();
+
+function isDirectDevice(source) {
+  return LOCAL_CAMERA_DIRECT && classifySource(source).type === 'device_index';
+}
+
+/**
+ * Newest viewer wins, matching the AI service's hand-over: several cameras (in
+ * different projects) may all point at the same laptop webcam, and a viewer
+ * opening one of them should take the device from whichever stream still
+ * holds it - including one a browser never closed after navigating away.
+ */
+function takeOverLocalDevice(source) {
+  if (!isDirectDevice(source)) return Promise.resolve();
+  const holder = localDeviceHolders.get(source);
+  if (!holder || holder.exitCode !== null || holder.signalCode !== null) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 3000);
+    holder.once('close', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    holder.kill('SIGKILL');
+  });
+}
+
+function trackLocalDevice(source, proc) {
+  if (!isDirectDevice(source)) return proc;
+  localDeviceHolders.set(source, proc);
+  proc.once('close', () => {
+    if (localDeviceHolders.get(source) === proc) localDeviceHolders.delete(source);
+  });
+  return proc;
+}
+
 function spawnMjpeg(source, { fps = 10, timeoutSeconds = 10, cameraId } = {}) {
-  return spawn(FFMPEG_BIN, [
+  return trackLocalDevice(source, spawn(FFMPEG_BIN, [
     ...buildInputArgs(source, timeoutSeconds, cameraId),
     '-f', 'image2pipe',
     '-vcodec', 'mjpeg',
     '-q:v', '5',
     '-r', String(fps),
     '-',
-  ]);
+  ]));
 }
 
 /**
@@ -172,4 +269,12 @@ function spawnClipCapture(source, outputPath, { durationSeconds = 30, timeoutSec
   ]);
 }
 
-module.exports = { FFMPEG_BIN, isAvailable, detectTimeoutFlag, spawnMjpeg, spawnClipCapture };
+module.exports = {
+  FFMPEG_BIN,
+  isAvailable,
+  detectTimeoutFlag,
+  detectLocalVideoDevices,
+  takeOverLocalDevice,
+  spawnMjpeg,
+  spawnClipCapture,
+};

@@ -79,6 +79,9 @@ app.use('/api/billing/webhook', require('./routes/webhooks/easypaisa'));
 require('./utils/ffmpeg')
   .detectTimeoutFlag()
   .catch((err) => console.error('ffmpeg probe failed:', err.message));
+require('./utils/ffmpeg')
+  .detectLocalVideoDevices()
+  .catch((err) => console.error('ffmpeg device probe failed:', err.message));
 
 // Scheduled report generation. Opt-out via DISABLE_CRON=true so short-lived
 // processes (tests, one-off scripts) don't hold the event loop open.

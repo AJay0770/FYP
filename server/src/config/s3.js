@@ -8,6 +8,13 @@ const s3Client = new S3Client({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
   forcePathStyle: true, // required for MinIO (path-style bucket addressing)
+  // Since @aws-sdk/client-s3 3.729 the default is WHEN_SUPPORTED, which makes
+  // getSignedUrl() bake an x-amz-checksum-crc32 of an *empty* body into every
+  // presigned PUT. Any real file uploaded through that URL then fails with
+  // BadDigest - on AWS S3 and S3-compatible stores alike. Only compute
+  // checksums where an operation actually requires one.
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
 });
 
 module.exports = s3Client;

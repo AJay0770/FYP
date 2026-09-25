@@ -22,6 +22,12 @@ function AppContent() {
       .catch(() => setApiStatus('disconnected'))
   }, [])
 
+  // Views swap in place (no router), so the browser keeps the previous view's
+  // scroll offset. Start each newly shown view from the top instead.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [view, selectedProjectId])
+
   const handleSelectProject = (projectId) => {
     setSelectedProjectId(projectId)
     setView('detail')

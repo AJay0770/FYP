@@ -19,6 +19,9 @@ export default function ProjectDetailPage({ projectId, onBack }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [tab, setTab] = useState('overview') // overview | media
+  // Bumped when a camera's source changes, to remount LiveMonitoring: it keeps
+  // its own camera list and an open MJPEG connection to the old source.
+  const [camerasVersion, setCamerasVersion] = useState(0)
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -94,8 +97,8 @@ export default function ProjectDetailPage({ projectId, onBack }) {
       {tab === 'overview' && (
         <>
           <AnalyticsDashboard projectId={projectId} />
-          <LiveMonitoringPage projectId={projectId} />
-          <LiveMonitoring projectId={projectId} />
+          <LiveMonitoringPage projectId={projectId} onCameraUpdated={() => setCamerasVersion((v) => v + 1)} />
+          <LiveMonitoring key={camerasVersion} projectId={projectId} />
           <SafetyAlertsPanel projectId={projectId} />
           <SiteUpdatesPanel projectId={projectId} />
           <MaterialsPanel projectId={projectId} />

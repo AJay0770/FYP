@@ -11,7 +11,7 @@ export default function ChatPanel({ projectId, token }) {
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const bottomRef = useRef(null)
+  const logRef = useRef(null)
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [mediaAssets, setMediaAssets] = useState([])
@@ -52,8 +52,12 @@ export default function ChatPanel({ projectId, token }) {
     }
   }, [projectId, token])
 
+  // Scroll only the chat log itself. scrollIntoView() also scrolls every
+  // scrollable ancestor - including the page - so loading chat history used
+  // to drag the whole project page down to the chat panel at the bottom.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'nearest' })
+    const log = logRef.current
+    if (log) log.scrollTop = log.scrollHeight
   }, [messages])
 
   const handleSend = (e) => {
@@ -107,7 +111,7 @@ export default function ChatPanel({ projectId, token }) {
         <>
           {/* aria-live so newly arriving messages are announced to screen readers
               without the user needing to poll the region manually. */}
-          <div className="chat-log" role="log" aria-live="polite" aria-label="Chat messages">
+          <div ref={logRef} className="chat-log" role="log" aria-live="polite" aria-label="Chat messages">
             {messages.length === 0 && <p className="ds-muted">No messages yet. Say something.</p>}
             {messages.map((m) => {
               const isOwn = m.senderId === user?.id
@@ -134,7 +138,6 @@ export default function ChatPanel({ projectId, token }) {
                 </div>
               )
             })}
-            <div ref={bottomRef} />
           </div>
 
           {attachedMedia && (

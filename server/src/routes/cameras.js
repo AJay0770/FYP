@@ -3,6 +3,7 @@ const router = express.Router({ mergeParams: true });
 const prisma = require('../utils/prisma');
 const { authenticateToken } = require('../middleware/auth');
 const { isEngineerAssigned, userHasProjectAccess } = require('../utils/projectAccess');
+const { classifySource, isWellFormed } = require('../utils/cameraSource');
 
 const ZONES = ['ENTRANCE', 'WORK_AREA', 'STORAGE'];
 
@@ -39,6 +40,54 @@ router.post('/', authenticateToken, async (req, res) => {
     res.status(201).json(camera);
   } catch (err) {
     console.error('Create camera error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/projects/:id/cameras/:cameraId (ADMIN, or ENGINEER assigned to the project)
+//
+// Re-points an existing camera at a different source - e.g. "0" to show the
+// laptop's built-in webcam in that camera's slot. The source ends up as an
+// ffmpeg/OpenCV input, so it is validated here rather than trusted as-is.
+router.patch('/:cameraId', authenticateToken, async (req, res) => {
+  try {
+    const { id: projectId, cameraId } = req.params;
+    const { rtspUrl } = req.body;
+
+    if (req.user.role === 'ENGINEER') {
+      const assigned = await isEngineerAssigned(projectId, req.user.userId);
+      if (!assigned) {
+        return res.status(403).json({ error: 'Forbidden: not assigned to this project' });
+      }
+    } else if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { source, safe, reason } = classifySource(rtspUrl);
+    if (!isWellFormed(source)) {
+      return res.status(400).json({ error: 'rtspUrl is required and must be a single line' });
+    }
+    if (!safe) {
+      return res.status(400).json({ error: `Camera source rejected: ${reason}` });
+    }
+
+    // Scoped by projectId as well as id, so a camera from another project
+    // cannot be edited through this project's URL.
+    const existing = await prisma.camera.findFirst({ where: { id: cameraId, projectId } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Camera not found' });
+    }
+
+    const camera = await prisma.camera.update({
+      where: { id: cameraId },
+      // A new source says nothing about whether it is reachable yet; the
+      // stream route flips this to ONLINE once the first frame arrives.
+      data: { rtspUrl: source, status: 'OFFLINE' },
+    });
+
+    res.json(camera);
+  } catch (err) {
+    console.error('Update camera error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

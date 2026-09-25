@@ -32,4 +32,10 @@ except Exception as exc:  # pragma: no cover
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Loopback by default: only the Node API calls this service, and /enroll
+    # accepts face images, so it must not be reachable from the network.
+    uvicorn.run(
+        app,
+        host=os.getenv("AI_HOST", "127.0.0.1"),
+        port=int(os.getenv("AI_PORT", "8000")),
+    )
