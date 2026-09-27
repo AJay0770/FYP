@@ -4,6 +4,7 @@ const prisma = require('../utils/prisma');
 const { authenticateTokenAllowQuery } = require('../middleware/auth');
 const { userHasProjectAccess } = require('../utils/projectAccess');
 const { spawnMjpeg, takeOverLocalDevice } = require('../utils/ffmpeg');
+const { isLocalDevice, getHolder } = require('../utils/localDevices');
 
 const BOUNDARY = 'buildsite360frame';
 const JPEG_SOI = Buffer.from([0xff, 0xd8]); // start of image
@@ -51,8 +52,23 @@ router.get('/:id/stream', authenticateTokenAllowQuery, async (req, res) => {
     return res.status(404).json({ error: 'Camera not found' });
   }
 
-  // No-op unless LOCAL_CAMERA_DIRECT is on and this camera is a local webcam.
-  await takeOverLocalDevice(camera.rtspUrl);
+  // A local webcam is shared by every camera pointing at it, and which one
+  // uses it is an explicit choice (routes/cameraDevice.js). Opening a stream
+  // must never take it, so refuse rather than steal.
+  if (isLocalDevice(camera.rtspUrl)) {
+    let holderId;
+    try {
+      holderId = await getHolder(camera.rtspUrl);
+    } catch (err) {
+      return res.status(err.statusCode || 502).json({ error: err.message });
+    }
+    if (holderId !== camera.id) {
+      return res.status(409).json({ error: 'The webcam is not assigned to this camera' });
+    }
+    // Direct mode: replace an older viewer of this same camera (e.g. a stream
+    // the browser never closed). No-op otherwise.
+    await takeOverLocalDevice(camera.rtspUrl);
+  }
 
   let ffmpeg;
   try {

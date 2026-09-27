@@ -486,6 +486,10 @@ class CameraWorker:
         self._frame_seq = 0
         self._cooldowns: dict[str, float] = {}
         self.state = WorkerState()
+        # Set for a local device explicitly assigned to this camera (see
+        # assign_device): it keeps running - and detecting - with no viewers,
+        # until released or reassigned by a user.
+        self.pinned = False
         self.started_at = time.time()
         self.last_viewer_at = time.time()
 
@@ -894,74 +898,138 @@ _workers: dict[str, CameraWorker] = {}
 _workers_lock = threading.Lock()
 
 
-class DeviceBusy(Exception):
-    """A local device is held by another camera's worker and this caller may not take it."""
+class DeviceNotAssigned(Exception):
+    """A local device (webcam) is not assigned to the requested camera."""
+
+    def __init__(self, source: str, holder_camera_id: str | None):
+        super().__init__(source)
+        self.source = source
+        self.holder_camera_id = holder_camera_id
 
 
-def get_worker(
-    source: str | None = None, camera_id: str | None = None, claim: bool = True
-) -> CameraWorker:
-    """Return the worker for `source`, starting it on first use.
+def _device_workers_locked(resolved: str) -> list[tuple[str, CameraWorker]]:
+    """Live workers currently holding local device `resolved`. Caller holds the lock."""
+    return [
+        (k, w) for k, w in _workers.items()
+        if w.alive and w.source == resolved and w.source_type == "device_index"
+    ]
 
-    A local device (webcam index) can only be opened by one capture at a time
-    on Windows, but several Camera rows - in different projects - may all
-    point at the same laptop webcam. Workers are keyed per camera, so without
-    a hand-over the second camera would sit retrying an "in use" device until
-    the first worker idled out. Instead, a viewer (`claim=True`, i.e. /stream)
-    evicts whichever other camera currently holds the device, so the webcam
-    follows the project being watched. Passive readers (`claim=False`, i.e.
-    the detections poll) never evict: a stale poll from a tab left open on
-    another project must not steal the feed back.
-    """
+
+def _resolve(source: str | None) -> tuple[str, str]:
     resolved = (source or CAMERA_SOURCE).strip()
-    key = f"{resolved}|{camera_id or DEFAULT_CAMERA_ID or ''}"
-
     try:
         _, source_type = resolve_source(resolved)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    return resolved, source_type
+
+
+def _start_worker_locked(resolved: str, camera_id: str | None, key: str) -> CameraWorker:
+    """Create, start and register a worker. Caller holds the lock."""
+    if len(_workers) >= MAX_WORKERS:
+        _reap_locked()
+        if len(_workers) >= MAX_WORKERS:
+            raise HTTPException(503, f"Too many active cameras (max {MAX_WORKERS})")
+    try:
+        worker = CameraWorker(resolved, camera_id).start()
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _workers[key] = worker
+    return worker
+
+
+def get_worker(source: str | None = None, camera_id: str | None = None) -> CameraWorker:
+    """Return the worker for `source`, starting it on first use.
+
+    A local device (webcam index) is different: it can be opened by only one
+    capture at a time, and several Camera rows - in different projects - may
+    point at the same laptop webcam. Which camera gets it is the user's
+    decision, made explicitly through assign_device(). Viewing or polling a
+    camera never moves the device, so pausing or stopping one feed cannot
+    silently hand the webcam to another. Raises DeviceNotAssigned when the
+    device is not assigned to this camera.
+    """
+    resolved, source_type = _resolve(source)
+    key = f"{resolved}|{camera_id or DEFAULT_CAMERA_ID or ''}"
 
     with _workers_lock:
         worker = _workers.get(key)
         if worker is not None and worker.alive:
             return worker
 
-        holders: list[CameraWorker] = []
         if source_type == "device_index":
-            holders = [
-                w for k, w in _workers.items()
-                if k != key and w.alive and w.source == resolved
-            ]
-            if holders and not claim:
-                raise DeviceBusy(resolved)
-            for k in [k for k, w in _workers.items() if w in holders]:
-                _workers[k].stop()
-                _workers.pop(k, None)
-                log.info("Handing device %s over to camera %s", resolved, camera_id)
+            holders = _device_workers_locked(resolved)
+            # A real camera needs an explicit assignment. The cameraless dev
+            # fallback (CAMERA_SOURCE, no cameraId) may use a *free* device.
+            if camera_id or holders:
+                holder = holders[0][1].camera_id if holders else None
+                raise DeviceNotAssigned(resolved, holder)
 
-    # Wait outside the registry lock for the previous holder to release the
-    # device, otherwise the new worker's first open fails and it only retries
-    # after OPEN_RETRY_SECONDS.
-    for old in holders:
+        return _start_worker_locked(resolved, camera_id, key)
+
+
+def assign_device(source: str, camera_id: str) -> CameraWorker:
+    """Give local device `source` to `camera_id`, stopping whichever camera held it."""
+    resolved, source_type = _resolve(source)
+    if source_type != "device_index":
+        raise HTTPException(400, f"{resolved!r} is not a local device")
+    if not camera_id:
+        raise HTTPException(400, "cameraId is required")
+    key = f"{resolved}|{camera_id}"
+
+    with _workers_lock:
+        current = _workers.get(key)
+        if current is not None and current.alive:
+            current.pinned = True
+            return current
+        previous = [w for k, w in _device_workers_locked(resolved) if k != key]
+        for k, w in list(_workers.items()):
+            if w in previous:
+                w.stop()
+                _workers.pop(k, None)
+        if previous:
+            log.info("Reassigning device %s to camera %s", resolved, camera_id)
+
+    # Wait outside the lock for the previous holder to release the device;
+    # otherwise the new worker's first open fails and it only retries after
+    # OPEN_RETRY_SECONDS.
+    for old in previous:
         old.join(timeout=5.0)
 
     with _workers_lock:
-        worker = _workers.get(key)
-        if worker is not None and worker.alive:
-            return worker
-
-        if len(_workers) >= MAX_WORKERS:
-            _reap_locked()
-            if len(_workers) >= MAX_WORKERS:
-                raise HTTPException(503, f"Too many active cameras (max {MAX_WORKERS})")
-
-        try:
-            worker = CameraWorker(resolved, camera_id).start()
-        except ValueError as exc:
-            raise HTTPException(400, str(exc)) from exc
-
-        _workers[key] = worker
+        worker = _start_worker_locked(resolved, camera_id, key)
+        worker.pinned = True
+        log.info("Device %s assigned to camera %s", resolved, camera_id)
         return worker
+
+
+def release_device(source: str, camera_id: str) -> bool:
+    """Stop `camera_id`'s use of local device `source`. False if it did not hold it."""
+    resolved, _ = _resolve(source)
+    key = f"{resolved}|{camera_id}"
+    with _workers_lock:
+        worker = _workers.pop(key, None)
+    if worker is None:
+        return False
+    worker.stop()
+    worker.join(timeout=5.0)
+    log.info("Device %s released by camera %s", resolved, camera_id)
+    return True
+
+
+def list_devices() -> list[dict]:
+    """Which camera currently holds each local device."""
+    with _workers_lock:
+        return [
+            {
+                "source": w.source,
+                "cameraId": w.camera_id,
+                "connected": w.state.connected,
+                "pinned": w.pinned,
+            }
+            for _, w in _workers.items()
+            if w.alive and w.source_type == "device_index"
+        ]
 
 
 def _reap_locked() -> None:
@@ -969,6 +1037,8 @@ def _reap_locked() -> None:
     now = time.time()
     for key, worker in list(_workers.items()):
         idle = now - worker.last_viewer_at
+        if worker.alive and worker.pinned:
+            continue
         if not worker.alive or idle > IDLE_SHUTDOWN_SECONDS:
             worker.stop()
             _workers.pop(key, None)
@@ -990,8 +1060,40 @@ threading.Thread(target=_reaper, name="worker-reaper", daemon=True).start()
 # --------------------------------------------------------------------------
 
 @asynccontextmanager
+def _warm_up() -> None:
+    """Pay the one-off start-up costs before the first viewer does.
+
+    The first YOLO inference (~10 s on CPU) and the first face match - which
+    imports TensorFlow and loads ArcFace (~10 s) - both run inside a camera's
+    capture thread before its first frame is published. Cold, that delays the
+    first frame past the Node API's 12 s first-frame timeout, so the first
+    stream after every restart failed with 504. Done once here instead, in the
+    background, so start-up itself is not delayed.
+    """
+    model = load_model()
+    if model is not None:
+        try:
+            import numpy as np
+
+            blank = SERVICE_ROOT / "data" / "output" / "_warmup.jpg"
+            blank.parent.mkdir(parents=True, exist_ok=True)
+            cv2.imwrite(str(blank), np.zeros((480, 640, 3), dtype=np.uint8))
+            # Same call shape as CameraWorker._infer (8.0.0 needs a file path).
+            model.predict(source=str(blank), conf=CONFIDENCE_THRESHOLD, verbose=False)
+        except Exception:
+            log.exception("YOLO warm-up failed; the first inference will be slower")
+    try:
+        from deepface import DeepFace
+
+        DeepFace.build_model(FACE_MATCH_MODEL)
+    except Exception as exc:
+        log.warning("Face-match warm-up skipped (%s); the first match will be slower", exc)
+    log.info("Warm-up complete: model and face matching are ready")
+
+
 async def lifespan(_app: FastAPI):
     load_model()
+    threading.Thread(target=_warm_up, name="warm-up", daemon=True).start()
     log.info(
         "safety_stream ready on :%s (default source=%r type=%s, conf=%.2f, model=%s)",
         STREAM_PORT, CAMERA_SOURCE, CAMERA_TYPE, CONFIDENCE_THRESHOLD,
@@ -1046,7 +1148,13 @@ def stream(
     annotate: bool = Query(True, description="Draw detection boxes on the frames"),
 ):
     """multipart/x-mixed-replace MJPEG - drop straight into an <img src>."""
-    worker = get_worker(source, camera_id)
+    try:
+        worker = get_worker(source, camera_id)
+    except DeviceNotAssigned as exc:
+        return JSONResponse(
+            {"error": f"device {exc.source} is not assigned to this camera", "holderCameraId": exc.holder_camera_id},
+            status_code=409,
+        )
 
     def generate():
         try:
@@ -1076,24 +1184,49 @@ def detections_latest(
 ):
     """Current detections, per-class counts and recent alerts for one camera."""
     try:
-        worker = get_worker(source, camera_id, claim=False)
-    except DeviceBusy as busy:
+        worker = get_worker(source, camera_id)
+    except DeviceNotAssigned as exc:
         # Same shape as a disconnected worker's snapshot, so callers need no
-        # special case - the device is simply being shown on another camera.
+        # special case - the device is simply not assigned to this camera.
         return JSONResponse({
-            "source": str(busy),
+            "source": exc.source,
             "sourceType": "device_index",
             "cameraId": camera_id,
             "connected": False,
             "modelLoaded": _model is not None,
             "modelError": _model_error,
-            "lastError": f"device {busy} is in use by another camera",
+            "lastError": f"device {exc.source} is not assigned to this camera",
             "frameSize": {"width": 0, "height": 0},
             "detections": [],
             "counts": {name: 0 for name in get_class_names().values()},
             "hazardCount": 0,
         })
     return JSONResponse(worker.snapshot())
+
+
+@app.get("/devices")
+def devices() -> dict:
+    """Local devices and the camera each is assigned to."""
+    return {"devices": list_devices()}
+
+
+@app.post("/devices/assign")
+def devices_assign(
+    source: str = Query(...),
+    camera_id: str = Query(..., alias="cameraId"),
+) -> dict:
+    """Assign a local device to a camera, moving it from any other camera."""
+    worker = assign_device(source, camera_id)
+    return {"source": worker.source, "cameraId": worker.camera_id}
+
+
+@app.post("/devices/release")
+def devices_release(
+    source: str = Query(...),
+    camera_id: str = Query(..., alias="cameraId"),
+) -> dict:
+    """Free a local device held by this camera."""
+    return {"released": release_device(source, camera_id)}
 
 
 @app.get("/stats")

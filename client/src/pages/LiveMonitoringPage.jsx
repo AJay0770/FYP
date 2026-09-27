@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, useContext } from 'react'
 import api from '../api/axios'
 import { AuthContext } from '../context/AuthContext'
-import { Badge, Button, Card, Input, statusVariant } from '../components/ui'
+import { Badge, Button, Card, Input, Modal, statusVariant } from '../components/ui'
+import useCameraDevice, { holderLabel } from '../components/useCameraDevice'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 
@@ -13,7 +14,7 @@ const LAPTOP_WEBCAM_SOURCE = '0'
  * An MJPEG <img> that closes its connection on unmount. Chrome keeps loading
  * a multipart image after the element is removed, so leaving a project would
  * otherwise leave its stream open - and a local webcam can only be held by
- * one stream, so the next project's camera could not open it.
+ * one stream at a time.
  */
 function MjpegStream(props) {
   const imgRef = useRef(null)
@@ -33,25 +34,239 @@ function MjpegStream(props) {
   return <img ref={setRef} {...props} />
 }
 
+function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
+  const device = useCameraDevice(cam)
+  const [clip, setClip] = useState(null)
+  const [recording, setRecording] = useState(false)
+  const [streamFailed, setStreamFailed] = useState(false)
+  // Network cameras only: pausing just this viewer. A webcam is freed with
+  // "Release webcam" instead, which is what makes it available elsewhere.
+  const [streamStopped, setStreamStopped] = useState(false)
+  const [edit, setEdit] = useState(null) // { value, saving, error } while editing the source
+  const [confirmMove, setConfirmMove] = useState(false)
+
+  const zoneLabel = cam.zone.replace('_', ' ')
+  const deviceState = device.status?.state
+  const canControl = Boolean(device.status?.canControl)
+  // A webcam camera streams only while the webcam is assigned to it.
+  const showStream = device.local ? deviceState === 'here' && !streamFailed : !streamStopped && !streamFailed
+
+  // A fresh assignment deserves a fresh attempt at the stream.
+  useEffect(() => {
+    if (deviceState === 'here') setStreamFailed(false)
+  }, [deviceState])
+
+  const recordClip = async () => {
+    setRecording(true)
+    setClip(null)
+    try {
+      const res = await api.post(`/cameras/${cam.id}/record-clip`)
+      setClip({ url: res.data.clipUrl })
+    } catch (err) {
+      setClip({ error: err.response?.data?.error || 'Recording failed' })
+    } finally {
+      setRecording(false)
+    }
+  }
+
+  const saveSource = async (value) => {
+    setEdit((prev) => ({ ...prev, value, saving: true, error: '' }))
+    try {
+      const res = await api.patch(`/projects/${projectId}/cameras/${cam.id}`, { rtspUrl: value })
+      setStreamFailed(false)
+      setEdit(null)
+      onCameraUpdated(res.data)
+    } catch (err) {
+      setEdit((prev) => ({ ...prev, saving: false, error: err.response?.data?.error || 'Failed to update source' }))
+    }
+  }
+
+  const changeDevice = async (action) => {
+    const ok = action === 'release' ? await device.release() : await device.assign(action === 'move')
+    if (ok) onCameraUpdated(cam, { deviceChanged: true })
+  }
+
+  let placeholder = null
+  if (device.local) {
+    if (!device.status) {
+      placeholder = device.error ? `Webcam status unavailable — ${device.error}` : 'Checking the webcam…'
+    } else if (deviceState === 'free') {
+      placeholder = 'The laptop webcam is free. Choose "Use webcam here" to show it on this camera.'
+    } else if (deviceState === 'elsewhere') {
+      placeholder = `The laptop webcam is in use by ${holderLabel(device.status)}.`
+    } else if (streamFailed) {
+      placeholder = 'Stream unavailable — the webcam could not be opened.'
+    }
+  } else if (streamStopped) {
+    placeholder = 'Feed paused.'
+  } else if (streamFailed) {
+    placeholder = 'Stream unavailable — the camera is unreachable.'
+  }
+
+  return (
+    <div>
+      <div className="ds-row" style={{ justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
+        <div>
+          <strong>{cam.name}</strong>
+          <div className="ds-caption">
+            {zoneLabel}
+            {device.local && ' · laptop webcam'}
+          </div>
+        </div>
+        {device.local && deviceState ? (
+          <Badge variant={deviceState === 'here' ? 'success' : deviceState === 'free' ? 'neutral' : 'warning'} dot>
+            {deviceState === 'here' ? 'Webcam in use here' : deviceState === 'free' ? 'Webcam free' : 'Webcam elsewhere'}
+          </Badge>
+        ) : (
+          <Badge variant={statusVariant(cam.status)} dot>{cam.status}</Badge>
+        )}
+      </div>
+
+      <div className="camera-tile__frame">
+        {showStream ? (
+          /*
+           * <img> cannot send an Authorization header, so the token is
+           * passed as a query param. See authenticateTokenAllowQuery
+           * server-side for why that is scoped to this one route.
+           */
+          <MjpegStream
+            // Keyed on the source so re-pointing the camera opens a
+            // fresh MJPEG connection instead of keeping the old one.
+            key={cam.rtspUrl}
+            src={`${API_BASE}/cameras/${cam.id}/stream?token=${encodeURIComponent(token || '')}`}
+            alt={`Live view from ${cam.name} in the ${zoneLabel.toLowerCase()}`}
+            onError={() => setStreamFailed(true)}
+          />
+        ) : (
+          <p className="camera-tile__placeholder">{placeholder}</p>
+        )}
+      </div>
+
+      <div className="ds-row" style={{ marginTop: 'var(--space-sm)' }}>
+        {device.local ? (
+          canControl && (
+            <>
+              {deviceState === 'free' && (
+                <Button size="sm" onClick={() => changeDevice('assign')} disabled={device.busy}>
+                  Use webcam here
+                </Button>
+              )}
+              {deviceState === 'elsewhere' && (
+                <Button size="sm" onClick={() => setConfirmMove(true)} disabled={device.busy}>
+                  Move webcam here
+                </Button>
+              )}
+              {deviceState === 'here' && streamFailed && (
+                <Button size="sm" onClick={() => setStreamFailed(false)}>Retry</Button>
+              )}
+              {deviceState === 'here' && (
+                <Button size="sm" variant="secondary" onClick={() => changeDevice('release')} disabled={device.busy}>
+                  Release webcam
+                </Button>
+              )}
+            </>
+          )
+        ) : streamStopped || streamFailed ? (
+          <Button
+            size="sm"
+            onClick={() => {
+              setStreamStopped(false)
+              setStreamFailed(false)
+            }}
+          >
+            Start feed
+          </Button>
+        ) : (
+          <Button size="sm" variant="secondary" onClick={() => setStreamStopped(true)}>Stop feed</Button>
+        )}
+
+        {(!device.local || deviceState === 'here') && (
+          <Button size="sm" variant="secondary" onClick={recordClip} disabled={recording}>
+            {recording ? 'Recording 30s…' : 'Record 30s clip'}
+          </Button>
+        )}
+        {clip?.url && (
+          <a href={clip.url} target="_blank" rel="noreferrer">Download clip</a>
+        )}
+        {clip?.error && <span className="ds-field__error">{clip.error}</span>}
+        {canEditSource && !edit && (
+          <Button size="sm" variant="ghost" onClick={() => setEdit({ value: cam.rtspUrl, error: '' })}>
+            Change source
+          </Button>
+        )}
+      </div>
+
+      {device.local && device.status && !canControl && (
+        <p className="ds-caption" style={{ marginTop: 'var(--space-xs)' }}>
+          Only an admin or an engineer on this project can move the webcam.
+        </p>
+      )}
+      {device.local && device.error && device.status && (
+        <p className="ds-field__error" role="alert">{device.error}</p>
+      )}
+
+      {canEditSource && edit && (
+        <form
+          style={{ marginTop: 'var(--space-sm)' }}
+          onSubmit={(e) => {
+            e.preventDefault()
+            saveSource(edit.value.trim())
+          }}
+        >
+          <Input
+            label={`Source for ${cam.name}`}
+            value={edit.value}
+            onChange={(e) => setEdit((prev) => ({ ...prev, value: e.target.value }))}
+            hint="Paste 0 for the laptop webcam, or an rtsp:// / http:// camera URL."
+            error={edit.error}
+            disabled={edit.saving}
+          />
+          <div className="ds-row">
+            <Button size="sm" type="submit" disabled={edit.saving || !edit.value.trim()}>
+              {edit.saving ? 'Saving…' : 'Save'}
+            </Button>
+            <Button size="sm" variant="secondary" disabled={edit.saving} onClick={() => saveSource(LAPTOP_WEBCAM_SOURCE)}>
+              Use laptop webcam
+            </Button>
+            <Button size="sm" variant="ghost" disabled={edit.saving} onClick={() => setEdit(null)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+
+      <Modal
+        open={confirmMove}
+        title="Move the webcam?"
+        onClose={() => setConfirmMove(false)}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmMove(false)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                setConfirmMove(false)
+                await changeDevice('move')
+              }}
+            >
+              Move webcam here
+            </Button>
+          </>
+        }
+      >
+        <p>
+          The laptop webcam is currently used by <strong>{holderLabel(device.status)}</strong>. Moving it
+          here stops that feed and its safety detection.
+        </p>
+      </Modal>
+    </div>
+  )
+}
+
 export default function LiveMonitoringPage({ projectId, onCameraUpdated }) {
   const { token, user } = useContext(AuthContext)
   const [cameras, setCameras] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [clips, setClips] = useState({})
-  const [recording, setRecording] = useState({})
-  const [failedStreams, setFailedStreams] = useState({})
-  // Viewer-stopped feeds, so a shared device like the laptop webcam can be
-  // released for a camera in another project.
-  const [stoppedStreams, setStoppedStreams] = useState({})
-
-  const stopStream = (cameraId) => setStoppedStreams((prev) => ({ ...prev, [cameraId]: true }))
-  const startStream = (cameraId) => {
-    setStoppedStreams((prev) => ({ ...prev, [cameraId]: false }))
-    setFailedStreams((prev) => ({ ...prev, [cameraId]: false }))
-  }
-  // cameraId -> { value, saving, error } while that camera's source is being edited
-  const [sourceEdits, setSourceEdits] = useState({})
 
   // Mirrors the server: only ADMIN or an engineer (assignment is enforced there)
   // may re-point a camera.
@@ -73,43 +288,11 @@ export default function LiveMonitoringPage({ projectId, onCameraUpdated }) {
     if (projectId) fetchCameras()
   }, [projectId])
 
-  const recordClip = async (cameraId) => {
-    setRecording((prev) => ({ ...prev, [cameraId]: true }))
-    setClips((prev) => ({ ...prev, [cameraId]: null }))
-    try {
-      const res = await api.post(`/cameras/${cameraId}/record-clip`)
-      setClips((prev) => ({ ...prev, [cameraId]: { url: res.data.clipUrl } }))
-    } catch (err) {
-      setClips((prev) => ({
-        ...prev,
-        [cameraId]: { error: err.response?.data?.error || 'Recording failed' },
-      }))
-    } finally {
-      setRecording((prev) => ({ ...prev, [cameraId]: false }))
+  const handleCameraUpdated = (updated, change = {}) => {
+    if (!change.deviceChanged) {
+      setCameras((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
     }
-  }
-
-  const updateSourceEdit = (cameraId, patch) =>
-    setSourceEdits((prev) => ({ ...prev, [cameraId]: { ...prev[cameraId], ...patch } }))
-
-  const closeSourceEdit = (cameraId) =>
-    setSourceEdits((prev) => {
-      const next = { ...prev }
-      delete next[cameraId]
-      return next
-    })
-
-  const saveSource = async (cameraId, value) => {
-    updateSourceEdit(cameraId, { value, saving: true, error: '' })
-    try {
-      const res = await api.patch(`/projects/${projectId}/cameras/${cameraId}`, { rtspUrl: value })
-      setCameras((prev) => prev.map((c) => (c.id === cameraId ? res.data : c)))
-      setFailedStreams((prev) => ({ ...prev, [cameraId]: false }))
-      closeSourceEdit(cameraId)
-      onCameraUpdated?.(res.data)
-    } catch (err) {
-      updateSourceEdit(cameraId, { saving: false, error: err.response?.data?.error || 'Failed to update source' })
-    }
+    onCameraUpdated?.(updated)
   }
 
   return (
@@ -125,113 +308,16 @@ export default function LiveMonitoringPage({ projectId, onCameraUpdated }) {
 
       {!loading && cameras.length > 0 && (
         <div className="camera-grid">
-          {cameras.map((cam) => {
-            const clip = clips[cam.id]
-            const streamFailed = failedStreams[cam.id]
-            const streamStopped = stoppedStreams[cam.id]
-            const edit = sourceEdits[cam.id]
-            return (
-              <div key={cam.id}>
-                <div className="ds-row" style={{ justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
-                  <div>
-                    <strong>{cam.name}</strong>
-                    <div className="ds-caption">{cam.zone.replace('_', ' ')}</div>
-                  </div>
-                  <Badge variant={statusVariant(cam.status)} dot>{cam.status}</Badge>
-                </div>
-
-                <div className="camera-tile__frame">
-                  {streamStopped ? (
-                    <p className="camera-tile__placeholder">
-                      Feed stopped — the camera is free for another project.
-                    </p>
-                  ) : streamFailed ? (
-                    <p className="camera-tile__placeholder">
-                      Stream unavailable — the camera is unreachable.
-                    </p>
-                  ) : (
-                    /*
-                     * <img> cannot send an Authorization header, so the token is
-                     * passed as a query param. See authenticateTokenAllowQuery
-                     * server-side for why that is scoped to this one route.
-                     */
-                    <MjpegStream
-                      // Keyed on the source so re-pointing the camera opens a
-                      // fresh MJPEG connection instead of keeping the old one.
-                      key={cam.rtspUrl}
-                      src={`${API_BASE}/cameras/${cam.id}/stream?token=${encodeURIComponent(token || '')}`}
-                      alt={`Live view from ${cam.name} in the ${cam.zone.replace('_', ' ').toLowerCase()}`}
-                      onError={() => setFailedStreams((prev) => ({ ...prev, [cam.id]: true }))}
-                    />
-                  )}
-                </div>
-
-                <div className="ds-row" style={{ marginTop: 'var(--space-sm)' }}>
-                  {/*
-                    * Stopping unmounts the stream, which closes its connection;
-                    * the server then ends that ffmpeg and releases the device.
-                    * Start also serves as a retry after a failed stream.
-                    */}
-                  {streamStopped || streamFailed ? (
-                    <Button size="sm" onClick={() => startStream(cam.id)}>Start feed</Button>
-                  ) : (
-                    <Button size="sm" variant="secondary" onClick={() => stopStream(cam.id)}>Stop feed</Button>
-                  )}
-                  <Button size="sm" variant="secondary" onClick={() => recordClip(cam.id)} disabled={recording[cam.id]}>
-                    {recording[cam.id] ? 'Recording 30s…' : 'Record 30s clip'}
-                  </Button>
-                  {clip?.url && (
-                    <a href={clip.url} target="_blank" rel="noreferrer">Download clip</a>
-                  )}
-                  {clip?.error && <span className="ds-field__error">{clip.error}</span>}
-                  {canEditSource && !edit && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => updateSourceEdit(cam.id, { value: cam.rtspUrl, error: '' })}
-                    >
-                      Change source
-                    </Button>
-                  )}
-                </div>
-
-                {canEditSource && edit && (
-                  <form
-                    style={{ marginTop: 'var(--space-sm)' }}
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      saveSource(cam.id, edit.value.trim())
-                    }}
-                  >
-                    <Input
-                      label={`Source for ${cam.name}`}
-                      value={edit.value}
-                      onChange={(e) => updateSourceEdit(cam.id, { value: e.target.value })}
-                      hint="Paste 0 for the laptop webcam, or an rtsp:// / http:// camera URL."
-                      error={edit.error}
-                      disabled={edit.saving}
-                    />
-                    <div className="ds-row">
-                      <Button size="sm" type="submit" disabled={edit.saving || !edit.value.trim()}>
-                        {edit.saving ? 'Saving…' : 'Save'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={edit.saving}
-                        onClick={() => saveSource(cam.id, LAPTOP_WEBCAM_SOURCE)}
-                      >
-                        Use laptop webcam
-                      </Button>
-                      <Button size="sm" variant="ghost" disabled={edit.saving} onClick={() => closeSourceEdit(cam.id)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            )
-          })}
+          {cameras.map((cam) => (
+            <CameraTile
+              key={cam.id}
+              cam={cam}
+              projectId={projectId}
+              token={token}
+              canEditSource={canEditSource}
+              onCameraUpdated={handleCameraUpdated}
+            />
+          ))}
         </div>
       )}
     </Card>

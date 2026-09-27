@@ -58,6 +58,7 @@ app.use('/api/projects/:id/media', require('./routes/media'));
 // Camera streaming/recording are addressed by camera id, not nested under project.
 app.use('/api/cameras', require('./routes/cameraStream'));
 app.use('/api/cameras', require('./routes/cameraClips'));
+app.use('/api/cameras', require('./routes/cameraDevice'));
 
 // AI safety detection: annotated stream + live detections. Mounted at /api so the
 // paths read /api/stream/safety and /api/detections/latest — these are about the

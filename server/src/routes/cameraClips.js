@@ -8,6 +8,7 @@ const prisma = require('../utils/prisma');
 const { authenticateToken } = require('../middleware/auth');
 const { userHasProjectAccess } = require('../utils/projectAccess');
 const { spawnClipCapture } = require('../utils/ffmpeg');
+const { isLocalDevice, getHolder } = require('../utils/localDevices');
 const { uploadBuffer } = require('../utils/s3');
 
 const CLIP_SECONDS = 30;
@@ -66,6 +67,12 @@ router.post('/:id/record-clip', authenticateToken, async (req, res) => {
 
     const hasAccess = await userHasProjectAccess(camera.projectId, req.user);
     if (!hasAccess) return res.status(404).json({ error: 'Camera not found' });
+
+    // Recording a shared local webcam requires it to be assigned here, same
+    // as viewing it (routes/cameraDevice.js); a recording never takes it.
+    if (isLocalDevice(camera.rtspUrl) && (await getHolder(camera.rtspUrl)) !== camera.id) {
+      return res.status(409).json({ error: 'The webcam is not assigned to this camera' });
+    }
 
     tempPath = path.join(os.tmpdir(), `clip-${crypto.randomUUID()}.mp4`);
 

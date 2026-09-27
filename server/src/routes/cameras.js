@@ -4,6 +4,7 @@ const prisma = require('../utils/prisma');
 const { authenticateToken } = require('../middleware/auth');
 const { isEngineerAssigned, userHasProjectAccess } = require('../utils/projectAccess');
 const { classifySource, isWellFormed } = require('../utils/cameraSource');
+const localDevices = require('../utils/localDevices');
 
 const ZONES = ['ENTRANCE', 'WORK_AREA', 'STORAGE'];
 
@@ -76,6 +77,19 @@ router.patch('/:cameraId', authenticateToken, async (req, res) => {
     const existing = await prisma.camera.findFirst({ where: { id: cameraId, projectId } });
     if (!existing) {
       return res.status(404).json({ error: 'Camera not found' });
+    }
+
+    // Re-pointing a camera that holds the laptop webcam: release it first, or
+    // the webcam would stay assigned to a camera that no longer uses it.
+    // Best-effort - if the detection service is down it holds nothing anyway.
+    if (existing.rtspUrl.trim() !== source && localDevices.isLocalDevice(existing.rtspUrl)) {
+      try {
+        if ((await localDevices.getHolder(existing.rtspUrl)) === cameraId) {
+          await localDevices.release(existing.rtspUrl, cameraId);
+        }
+      } catch (releaseErr) {
+        console.error('Releasing webcam before source change failed:', releaseErr.message);
+      }
     }
 
     const camera = await prisma.camera.update({

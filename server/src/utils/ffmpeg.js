@@ -213,10 +213,11 @@ function isDirectDevice(source) {
 }
 
 /**
- * Newest viewer wins, matching the AI service's hand-over: several cameras (in
- * different projects) may all point at the same laptop webcam, and a viewer
- * opening one of them should take the device from whichever stream still
- * holds it - including one a browser never closed after navigating away.
+ * Kill whichever ffmpeg currently holds the local device, and wait for it to
+ * let go. Which *camera* may use the device is decided explicitly elsewhere
+ * (utils/localDevices.js); this only frees the physical device - for a new
+ * viewer of the camera it is assigned to (e.g. replacing a stream a browser
+ * never closed), or when a user moves or releases the assignment.
  */
 function takeOverLocalDevice(source) {
   if (!isDirectDevice(source)) return Promise.resolve();
@@ -271,6 +272,7 @@ function spawnClipCapture(source, outputPath, { durationSeconds = 30, timeoutSec
 
 module.exports = {
   FFMPEG_BIN,
+  LOCAL_CAMERA_DIRECT,
   isAvailable,
   detectTimeoutFlag,
   detectLocalVideoDevices,

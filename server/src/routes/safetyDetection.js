@@ -178,6 +178,11 @@ router.get('/stream/safety', authenticateTokenAllowQuery, async (req, res) => {
             `Safety stream upstream ${proxyRes.statusCode} for camera ${target.camera?.id ?? 'default'}: ${body}`
           );
           if (!res.headersSent) {
+            // 409: a local webcam that is not assigned to this camera. That is
+            // a normal state the UI shows, not a service failure.
+            if (proxyRes.statusCode === 409) {
+              return res.status(409).json({ error: 'The webcam is not assigned to this camera' });
+            }
             res.status(502).json({
               error: 'Detection service could not start the stream',
               upstreamStatus: proxyRes.statusCode,

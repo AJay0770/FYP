@@ -4,6 +4,7 @@ import api from '../api/axios'
 import { connectSocket } from '../api/socket'
 import { AuthContext } from '../context/AuthContext'
 import { Badge, Button, Card, Select, Table, ToastRegion, useToasts, statusVariant } from '../components/ui'
+import useCameraDevice, { holderLabel } from '../components/useCameraDevice'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 
@@ -191,6 +192,15 @@ export default function LiveMonitoring({ projectId }) {
   const aiAvailable = snapshot?.aiService?.available !== false
   const modelLoaded = snapshot?.modelLoaded === true
   const camera = cameras.find((c) => c.id === cameraId)
+  // A laptop-webcam camera can only stream while the webcam is assigned to
+  // it. Assignment is changed explicitly in the Live monitoring panel; this
+  // panel only reflects it and never takes the webcam itself.
+  const device = useCameraDevice(camera)
+  const webcamNotHere = device.local && device.status?.state !== 'here'
+  const deviceState = device.status?.state
+  useEffect(() => {
+    if (deviceState === 'here') setStreamFailed(false)
+  }, [deviceState])
 
   const chartData = useMemo(
     () => CLASSES.map((c) => ({ name: c.label, count: counts[c.key] || 0, fill: c.hazard ? BOX_HAZARD : BOX_SAFE })),
@@ -284,7 +294,15 @@ export default function LiveMonitoring({ projectId }) {
             </div>
 
             <div className="safety-stream">
-              {!streamOn ? (
+              {webcamNotHere ? (
+                <p className="camera-tile__placeholder">
+                  {!device.status
+                    ? 'Checking the webcam…'
+                    : device.status.state === 'free'
+                      ? 'The laptop webcam is not assigned to this camera. Use "Use webcam here" in Live monitoring above to start detection on it.'
+                      : `The laptop webcam is in use by ${holderLabel(device.status)}.`}
+                </p>
+              ) : !streamOn ? (
                 <p className="camera-tile__placeholder">Stream paused.</p>
               ) : streamFailed ? (
                 <p className="camera-tile__placeholder">

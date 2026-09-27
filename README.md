@@ -96,7 +96,14 @@ Then register a camera with `rtspUrl` of `rtsp://127.0.0.1:8554/testcam`.
    drive, or cloud storage into `ai-service/models/best.pt`. Without it, video
    still streams but there is no helmet/vest detection.
 
-5. **Check the setup:**
+5. **Optional: add demo data** to your existing projects (site updates,
+   materials, workers, attendance, safety violations, chat). It only adds rows
+   and is safe to re-run:
+   ```bash
+   cd server && npm run seed:demo
+   ```
+
+6. **Check the setup:**
    ```bash
    npm run doctor
    ```
@@ -162,8 +169,13 @@ A camera whose source is `0` is the computer's built-in webcam (`1`, `2`... for
 extra USB cameras). In a project's **Live monitoring** panel, click **Change
 source** on a camera and enter `0` (or click **Use laptop webcam**).
 
-- The webcam can only be used by one feed at a time. Opening another project's
-  webcam camera takes it over automatically; **Stop feed** releases it by hand.
+- The webcam can only be used by one feed at a time, and **you choose which**.
+  Each webcam camera shows who has it: **Use webcam here** takes a free webcam,
+  **Move webcam here** takes it from another feed (after a confirmation), and
+  **Release webcam** frees it. Viewing, pausing or leaving a page never moves it.
+- An assigned webcam keeps running, with safety detection, even when nobody is
+  watching, until it is released or moved. Only an admin or an engineer on the
+  project can move it.
 - The feed goes through the AI detection service, so helmet/vest detection
   runs on it.
 - If the AI service cannot be installed on a machine, set

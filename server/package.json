@@ -13,7 +13,8 @@
     "test:build": "node scripts/build-postman-collection.js",
     "test:e2e": "node scripts/run-e2e.js",
     "doctor": "node scripts/doctor.js",
-    "storage": "node scripts/start-storage.js"
+    "storage": "node scripts/start-storage.js",
+    "seed:demo": "node scripts/seed-demo.js"
   },
   "dependencies": {
     "express": "^4.18.2",

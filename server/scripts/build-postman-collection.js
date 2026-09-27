@@ -295,6 +295,15 @@ cameraItems.push(
   test('Update camera source unrecognised', 'PATCH', `/projects/${V('project1')}/cameras/${V('cameraWorkArea')}`, { auth: 'adminToken', body: { rtspUrl: 'not a camera' }, expect: 400 }),
   test('Update camera source missing', 'PATCH', `/projects/${V('project1')}/cameras/${V('cameraWorkArea')}`, { auth: 'adminToken', body: {}, expect: 400 }),
   test('Update camera via another project', 'PATCH', `/projects/${V('project2')}/cameras/${V('cameraWorkArea')}`, { auth: 'adminToken', body: { rtspUrl: '0' }, expect: 404 }),
+  // Webcam assignment endpoints. Seeded cameras are RTSP, so these cover the
+  // auth/scoping/validation paths without needing the AI service running.
+  test('Device status unauthenticated', 'GET', `/cameras/${V('cameraWorkArea')}/device`, { expect: 401 }),
+  test('Device status cross-tenant', 'GET', `/cameras/${V('cameraWorkArea')}/device`, { auth: 'client2Token', expect: 404 }),
+  test('Device status nonexistent camera', 'GET', '/cameras/00000000-0000-4000-8000-999999999999/device', { auth: 'adminToken', expect: 404 }),
+  test('Device status on non-webcam camera', 'GET', `/cameras/${V('cameraWorkArea')}/device`, { auth: 'adminToken', expect: 400 }),
+  test('Assign device on non-webcam camera', 'POST', `/cameras/${V('cameraWorkArea')}/device/assign`, { auth: 'adminToken', body: {}, expect: 400 }),
+  test('Assign device cross-tenant', 'POST', `/cameras/${V('cameraWorkArea')}/device/assign`, { auth: 'client2Token', body: {}, expect: 404 }),
+  test('Release device unauthenticated', 'POST', `/cameras/${V('cameraWorkArea')}/device/release`, { expect: 401 }),
   test('Stream unauthenticated', 'GET', `/cameras/${V('cameraWorkArea')}/stream`, { expect: 401 }),
   test('Stream nonexistent camera', 'GET', '/cameras/00000000-0000-4000-8000-999999999999/stream', { auth: 'adminToken', expect: 404 }),
   test('Record clip unauthenticated', 'POST', `/cameras/${V('cameraWorkArea')}/record-clip`, { expect: 401 }),
