@@ -1,194 +1,273 @@
 import { useState } from 'react'
 import {
-  Button, Input, Select, Card, Badge, Table, Modal, ToastRegion, useToasts,
-  Stack, Row, Grid, statusVariant,
+  Avatar, Badge, Button, Card, EmptyState, ErrorState, FileInput, Grid, Icon, Input, Modal, PageHeader,
+  ProgressBar, Row, SectionHeader, SegmentedControl, Select, Skeleton, StatCard, Table, Tabs, Textarea,
+  ToastRegion, Tooltip, statusVariant, useToasts,
 } from '../components/ui'
-import { colors, spacing, typography } from '../styles/designSystem'
+import { iconNames } from '../components/icons/Icon'
+import { colors } from '../styles/designSystem'
+import './ComponentGallery.css'
 
 /**
- * Every component rendered in isolation, for visual review and manual
- * accessibility checks (tab order, focus rings, contrast).
+ * Every component and variant rendered in isolation, for visual review and
+ * manual accessibility checks (tab order, focus rings, contrast). The sample
+ * values below are gallery placeholders only - no real page shows them.
  */
+const SWATCHES = [
+  ['bg', colors.bg], ['surface', colors.surface], ['surface-dark', colors.surfaceDark], ['surface-dark-2', colors.surfaceDark2],
+  ['text', colors.text], ['text-muted', colors.textMuted], ['border', colors.border], ['accent', colors.accent],
+  ['accent-strong', colors.accentStrong], ['success', colors.success], ['warning', colors.warning], ['danger', colors.danger], ['info', colors.info],
+]
+
+const SAMPLE_ROWS = [
+  { id: 1, name: 'Sample project A', status: 'ACTIVE', owner: 'client-a@example.com', value: 1250 },
+  { id: 2, name: 'Sample project B', status: 'PLANNING', owner: 'client-b@example.com', value: 830 },
+  { id: 3, name: 'Sample project C', status: 'ON_HOLD', owner: 'client-c@example.com', value: 92 },
+]
+
 export default function ComponentGallery({ onBack }) {
   const [modalOpen, setModalOpen] = useState(false)
-  const [inputValue, setInputValue] = useState('')
+  const [loadingBtn, setLoadingBtn] = useState(false)
+  const [tab, setTab] = useState('overview')
+  const [range, setRange] = useState('weekly')
+  const [text, setText] = useState('')
   const { toasts, push, dismiss } = useToasts()
 
-  const demoRows = [
-    { id: 1, name: 'Riverside Tower', status: 'ACTIVE', client: 'client1@test.com' },
-    { id: 2, name: 'Lakeside Villas', status: 'PLANNING', client: 'client2@test.com' },
-    { id: 3, name: 'Harbour Point', status: 'ON_HOLD', client: 'client3@test.com' },
+  const columns = [
+    { key: 'name', header: 'Project', render: (r) => <strong>{r.name}</strong> },
+    { key: 'status', header: 'Status', render: (r) => <Badge variant={statusVariant(r.status)} dot>{r.status.replace('_', ' ')}</Badge> },
+    { key: 'owner', header: 'Owner' },
+    { key: 'value', header: 'Qty', align: 'right', render: (r) => r.value.toLocaleString() },
+    { key: 'actions', header: '', align: 'right', render: () => <Button size="sm" variant="ghost" icon="pencil" aria-label="Edit" /> },
   ]
 
+  const demoLoading = () => {
+    setLoadingBtn(true)
+    setTimeout(() => setLoadingBtn(false), 1600)
+  }
+
   return (
-    <div style={{ padding: spacing.lg, maxWidth: 1100, margin: '0 auto' }}>
+    <div className="gallery">
       <ToastRegion toasts={toasts} onDismiss={dismiss} />
 
-      <Row className="ds-row">
-        {onBack && <Button variant="ghost" onClick={onBack}>&larr; Back</Button>}
-        <h1 style={{ margin: 0 }}>Component Gallery</h1>
-      </Row>
-      <p className="ds-muted">Every library component in isolation. Tab through the page to check focus order and rings.</p>
+      <PageHeader
+        eyebrow="Design system"
+        title="Component gallery"
+        subtitle="Every token, component and state in the BuildSite 360 UI kit. Tab through the page to check focus rings."
+        breadcrumb={onBack ? <><button type="button" onClick={onBack}>Projects</button><Icon name="chevron-right" size={14} /><span>Components</span></> : null}
+        actions={onBack ? <Button variant="secondary" icon="arrow-left" onClick={onBack}>Back</Button> : null}
+      />
 
-      {/* ---- Tokens ---- */}
-      <Card title="Colour tokens" subtitle="Contrast-checked against WCAG AA where used for text">
-        <Grid columns={3}>
-          {[
-            ['primary600', colors.primary600, 'Body text on white — 5.7:1'],
-            ['neutral900', colors.neutral900, 'Default text — 15.8:1'],
-            ['neutral500', colors.neutral500, 'Muted text — 4.8:1'],
-            ['success', colors.success, 'Online / received — 4.9:1'],
-            ['warning', colors.warning, 'On hold / consumed — 5.9:1'],
-            ['danger', colors.danger, 'Violations / errors — 6.4:1'],
-          ].map(([name, value, note]) => (
-            <div key={name}>
-              <div style={{ background: value, height: 44, borderRadius: 6, marginBottom: 6 }} />
-              <div style={{ fontWeight: 600, fontSize: typography.caption.fontSize }}>{name}</div>
-              <div className="ds-caption">{value} — {note}</div>
-            </div>
-          ))}
-        </Grid>
-      </Card>
-
-      <Card title="Typography scale">
-        <h1>Heading 1 — 2rem</h1>
-        <h2>Heading 2 — 1.5rem</h2>
-        <h3>Heading 3 — 1.25rem</h3>
-        <h4>Heading 4 — 1.0625rem</h4>
-        <p>Body — 0.9375rem. The default for paragraphs and table cells.</p>
-        <p className="ds-caption">Caption — 0.8125rem. Hints, timestamps, secondary detail.</p>
-      </Card>
-
-      <Card title="Spacing scale" subtitle="8px base">
+      {/* Dark emphasis block */}
+      <section className="gallery__hero ds-on-dark">
+        <div className="gallery__hero-glow" aria-hidden="true" />
+        <div className="ds-eyebrow">Light for work · dark for emphasis</div>
+        <h2 className="gallery__hero-title">Site intelligence, <span>in real time</span>.</h2>
+        <p className="gallery__hero-copy">Dark surfaces carry banners, the sidebar and key summaries. Data-dense screens stay light.</p>
         <Row>
-          {Object.entries(spacing).map(([name, value]) => (
-            <div key={name} style={{ textAlign: 'center' }}>
-              <div style={{ width: value, height: 28, background: colors.primary300, borderRadius: 3 }} />
-              <div className="ds-caption">{name}<br />{value}</div>
-            </div>
-          ))}
+          <Button icon="plus">Primary action</Button>
+          <Button variant="secondary">Secondary</Button>
+          <Button variant="ghost" iconRight="chevron-right">Ghost</Button>
         </Row>
+      </section>
+
+      <SectionHeader title="Colour tokens" subtitle="Accent is a fill on light surfaces; accent-strong is the accessible text/link colour." icon="palette" />
+      <div className="gallery__swatches">
+        {SWATCHES.map(([name, value]) => (
+          <div key={name} className="gallery__swatch">
+            <span style={{ background: value }} />
+            <strong>--{name}</strong>
+            <code>{value}</code>
+          </div>
+        ))}
+      </div>
+
+      <SectionHeader title="Typography" subtitle="Inter · tabular numbers for KPIs and tables" icon="file-text" />
+      <Card>
+        <div className="gallery__type">
+          <div><span className="ds-caption">Hero · 40/700</span><h1 style={{ margin: 0 }}>Construction, monitored.</h1></div>
+          <div><span className="ds-caption">Section · 24/600</span><h2 style={{ margin: 0 }}>Safety overview</h2></div>
+          <div><span className="ds-caption">Body · 16/400</span><p style={{ margin: 0 }}>Body copy is set at 16px for comfortable reading on every screen size.</p></div>
+          <div><span className="ds-caption">Secondary · 14</span><p className="ds-muted" style={{ margin: 0, fontSize: 14 }}>Secondary information and helper text.</p></div>
+          <div><span className="ds-caption">Label · 12/500 tracked</span><div className="ds-field__label">Field label</div></div>
+          <div><span className="ds-caption">Numbers</span><div className="ds-num" style={{ fontSize: 28, fontWeight: 700 }}>1,204 · 89.75%</div></div>
+        </div>
       </Card>
 
-      {/* ---- Buttons ---- */}
-      <Card title="Button">
-        <Stack>
+      <SectionHeader title="Buttons" subtitle="Hover lifts, press scales to 0.98, loading keeps the width" icon="layers" />
+      <Card>
+        <div className="gallery__stack">
           <Row>
-            <Button variant="primary">Primary</Button>
+            <Button>Primary</Button>
             <Button variant="secondary">Secondary</Button>
-            <Button variant="danger">Danger</Button>
+            <Button variant="dark">Dark</Button>
             <Button variant="ghost">Ghost</Button>
+            <Button variant="danger">Danger</Button>
           </Row>
           <Row>
             <Button size="sm">Small</Button>
-            <Button size="md">Medium</Button>
+            <Button>Medium</Button>
             <Button size="lg">Large</Button>
           </Row>
           <Row>
+            <Button icon="download">With icon</Button>
+            <Button variant="secondary" iconRight="chevron-right">Trailing icon</Button>
+            <Button loading={loadingBtn} onClick={demoLoading} icon="refresh-cw">Generate report</Button>
             <Button disabled>Disabled</Button>
-            <Button variant="secondary" disabled>Disabled secondary</Button>
+            <Tooltip label="Edit"><Button variant="secondary" icon="pencil" aria-label="Edit" /></Tooltip>
+            <Tooltip label="Delete"><Button variant="ghost" icon="trash-2" aria-label="Delete" /></Tooltip>
           </Row>
-        </Stack>
+        </div>
       </Card>
 
-      {/* ---- Inputs ---- */}
-      <Card title="Input & Select">
+      <SectionHeader title="Form fields" subtitle="44px controls, accent focus ring, inline errors" icon="pencil" />
+      <Card>
         <Grid columns={2}>
           <div>
-            <Input
-              label="Project name"
-              placeholder="e.g. Riverside Tower"
-              required
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              hint="Shown across dashboards and reports"
-            />
-            <Input label="Email" type="email" placeholder="name@example.com" />
-            <Input label="Password" type="password" placeholder="••••••••" />
+            <Input label="Email" icon="mail" type="email" placeholder="name@company.com" value={text} onChange={(e) => setText(e.target.value)} />
+            <Input label="Password" icon="lock" type="password" placeholder="••••••••" hint="At least 8 characters" />
+            <Input label="With error" defaultValue="not-an-email" error="Enter a valid email address" required />
+            <Input label="Disabled" defaultValue="Can't change this" disabled />
+            <Input label="Read-only" defaultValue="Read-only value" readOnly />
           </div>
           <div>
-            <Input label="With error" defaultValue="not-an-email" error="Enter a valid email address" />
-            <Input label="Disabled" defaultValue="Read only" disabled />
-            <Select
-              label="Camera zone"
-              required
-              options={[
-                { value: 'ENTRANCE', label: 'Entrance' },
-                { value: 'WORK_AREA', label: 'Work area' },
-                { value: 'STORAGE', label: 'Storage' },
-              ]}
-            />
+            <Select label="Zone" options={[{ value: 'ENTRANCE', label: 'Entrance' }, { value: 'WORK_AREA', label: 'Work area' }, { value: 'STORAGE', label: 'Storage' }]} />
+            <Input label="Date" type="date" />
+            <Input label="Time" type="time" />
+            <Textarea label="Notes" placeholder="Describe the site update…" />
+            <FileInput label="Photo" accept="image/*" hint="JPG or PNG" />
           </div>
         </Grid>
       </Card>
 
-      {/* ---- Badges ---- */}
-      <Card title="Badge" subtitle="Colour is never the only signal — each badge carries a text label">
-        <Stack>
+      <SectionHeader title="Cards" subtitle="Light and dark, with icon, subtitle and actions" icon="layout-dashboard" />
+      <Grid columns={3}>
+        <Card title="Light card" subtitle="Default surface" icon="building-2" actions={<Button size="sm" variant="ghost" icon="eye" aria-label="View" />}>
+          <p className="ds-muted" style={{ margin: 0 }}>Cards group related content with a 16px radius and a soft shadow.</p>
+        </Card>
+        <Card variant="dark" title="Dark card" subtitle="Emphasis surface" icon="shield-alert">
+          <p className="ds-muted" style={{ margin: 0 }}>Used for summaries, highlights and call-to-action blocks.</p>
+        </Card>
+        <Card interactive title="Interactive card" subtitle="Hover to lift" icon="map-pin" tabIndex={0}>
+          <p className="ds-muted" style={{ margin: 0 }}>Clickable cards lift slightly on hover.</p>
+        </Card>
+      </Grid>
+
+      <SectionHeader title="KPI cards" subtitle="Numbers count up on first load" icon="chart-column" />
+      <Grid columns={4}>
+        <StatCard icon="building-2" label="Projects" value={12} sub="Sample value" />
+        <StatCard icon="user-check" label="Check-ins" value={1204} />
+        <StatCard icon="shield-alert" label="Violations" value={9} tone="danger" />
+        <StatCard icon="percent" label="Completed" value={89.75} suffix="%" variant="dark" />
+      </Grid>
+      <div style={{ height: 16 }} />
+      <Grid columns={4}>
+        <StatCard icon="package" label="Loading state" loading />
+        <StatCard icon="triangle-alert" label="Warning tone" value={2} tone="warning" />
+        <StatCard icon="info" label="Info tone" value={5} tone="info" />
+        <StatCard icon="activity" label="Text value" value="—" sub="No data yet" />
+      </Grid>
+
+      <SectionHeader title="Badges & progress" icon="radio" />
+      <Card>
+        <div className="gallery__stack">
           <Row>
-            <Badge variant="neutral">Neutral</Badge>
-            <Badge variant="success">Success</Badge>
-            <Badge variant="warning">Warning</Badge>
-            <Badge variant="danger">Danger</Badge>
-            <Badge variant="info">Info</Badge>
+            <Badge>Neutral</Badge>
+            <Badge variant="success" dot>Active</Badge>
+            <Badge variant="warning" dot>On hold</Badge>
+            <Badge variant="danger" dot>No helmet</Badge>
+            <Badge variant="info" dot>Planning</Badge>
+            <Badge variant="accent">Accent</Badge>
+            <Badge variant="dark">Dark</Badge>
+            <Badge variant="danger" pulse>LIVE</Badge>
+            <Badge variant="success" pulse>Online</Badge>
+            <Badge variant="info" icon="user-check">With icon</Badge>
           </Row>
+          <div className="gallery__progress">
+            {[[0.92, 'accent'], [0.74, 'success'], [0.55, 'warning'], [0.3, 'danger']].map(([v, variant]) => (
+              <div key={variant}><span className="ds-caption">{variant} · {Math.round(v * 100)}%</span><ProgressBar value={v} variant={variant} label={`${variant} example`} /></div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      <SectionHeader title="Tabs & segmented control" icon="panel-left" />
+      <Card>
+        <div className="gallery__stack">
+          <Tabs
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              { id: 'overview', label: 'Overview', icon: 'layout-dashboard' },
+              { id: 'cameras', label: 'Cameras', icon: 'cctv' },
+              { id: 'safety', label: 'Safety', icon: 'shield-alert', badge: 3 },
+              { id: 'chat', label: 'Chat', icon: 'message-square' },
+            ]}
+          />
+          <SegmentedControl label="Range" value={range} onChange={setRange} options={['daily', 'weekly', 'monthly'].map((v) => ({ value: v, label: v }))} />
+        </div>
+      </Card>
+
+      <SectionHeader title="Table" subtitle="Sticky header, row hover, right-aligned numbers, loading and empty states" icon="clipboard-list" />
+      <Table columns={columns} rows={SAMPLE_ROWS} />
+      <div style={{ height: 16 }} />
+      <Grid columns={2}>
+        <Table columns={columns.slice(0, 3)} rows={[]} loading />
+        <Table columns={columns.slice(0, 3)} rows={[]} empty="No projects yet" />
+      </Grid>
+
+      <SectionHeader title="Avatars, skeletons & states" icon="users" />
+      <Grid columns={3}>
+        <Card title="Avatars">
           <Row>
-            <Badge variant={statusVariant('ONLINE')} dot>ONLINE</Badge>
-            <Badge variant={statusVariant('OFFLINE')} dot>OFFLINE</Badge>
-            <Badge variant={statusVariant('ACTIVE')}>ACTIVE</Badge>
-            <Badge variant={statusVariant('ON_HOLD')}>ON HOLD</Badge>
-            <Badge variant={statusVariant('NO_HELMET')}>NO HELMET</Badge>
-            <Badge variant={statusVariant('NO_VEST')}>NO VEST</Badge>
+            <Avatar name="admin@example.com" />
+            <Avatar name="Site Engineer" variant="dark" />
+            <Avatar name="client@example.com" variant="neutral" />
+            <Avatar name="Big Avatar" size={52} />
           </Row>
-        </Stack>
+        </Card>
+        <Card title="Skeleton">
+          <Skeleton height={20} width="50%" />
+          <div style={{ height: 12 }} />
+          <Skeleton lines={3} />
+        </Card>
+        <Card title="Empty state" flush>
+          <EmptyState compact icon="clipboard-list" title="No updates yet" message="Site updates will appear here." action={<Button size="sm" icon="plus">Add</Button>} />
+        </Card>
+      </Grid>
+      <Card flush>
+        <ErrorState message="Couldn't load this section." onRetry={() => push({ variant: 'info', title: 'Retry pressed' })} />
       </Card>
 
-      {/* ---- Table ---- */}
-      <Card title="Table" subtitle="Rows are keyboard-activatable when clickable" flush>
-        <Table
-          columns={[
-            { key: 'name', header: 'Project' },
-            { key: 'status', header: 'Status', render: (r) => <Badge variant={statusVariant(r.status)}>{r.status}</Badge> },
-            { key: 'client', header: 'Client' },
-          ]}
-          rows={demoRows}
-          onRowClick={(row) => push({ variant: 'info', title: 'Row activated', message: row.name })}
-        />
-      </Card>
-
-      <Card title="Table — empty state" flush>
-        <Table
-          columns={[{ key: 'name', header: 'Project' }, { key: 'status', header: 'Status' }]}
-          rows={[]}
-          empty="No projects yet"
-        />
-      </Card>
-
-      {/* ---- Modal & Toast ---- */}
-      <Card title="Modal & Toast">
+      <SectionHeader title="Overlays" subtitle="Modal: blur backdrop, focus trapped, ESC to close · Toast: slide-in with countdown" icon="layers" />
+      <Card>
         <Row>
-          <Button onClick={() => setModalOpen(true)}>Open modal</Button>
-          <Button variant="secondary" onClick={() => push({ variant: 'info', title: 'Info', message: 'A neutral notification.' })}>Info toast</Button>
-          <Button variant="secondary" onClick={() => push({ variant: 'success', title: 'Saved', message: 'Changes stored.' })}>Success toast</Button>
-          <Button variant="secondary" onClick={() => push({ variant: 'warning', title: 'Check materials', message: 'Bricks consumption exceeds received.' })}>Warning toast</Button>
-          <Button variant="danger" onClick={() => push({ variant: 'danger', title: 'Safety alert', message: 'NO_HELMET on Work Area North (0.94)' })}>Danger toast</Button>
+          <Button variant="dark" onClick={() => setModalOpen(true)}>Open modal</Button>
+          <Button variant="secondary" onClick={() => push({ variant: 'success', title: 'Saved', message: 'The change was saved.' })}>Success toast</Button>
+          <Button variant="secondary" onClick={() => push({ variant: 'danger', title: 'NO HELMET detected — unidentified person', message: 'West Side · confidence 0.83' })}>Alert toast</Button>
+          <Button variant="secondary" onClick={() => push({ variant: 'info', title: 'Heads up', message: 'Informational message.' })}>Info toast</Button>
         </Row>
       </Card>
 
       <Modal
         open={modalOpen}
-        title="Example dialog"
+        title="Move the webcam?"
         onClose={() => setModalOpen(false)}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={() => setModalOpen(false)}>Confirm</Button>
-          </>
-        }
+        footer={<><Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button><Button onClick={() => setModalOpen(false)}>Confirm</Button></>}
       >
-        <p>Escape closes this, clicking the overlay closes it, and focus moves into the dialog on open.</p>
-        <Input label="A field inside the dialog" placeholder="Type here" />
+        <p style={{ margin: 0 }} className="ds-muted">Dialogs trap focus - Tab cycles inside - and return focus to the button that opened them.</p>
+        <Input label="Focusable field" placeholder="Tab to cycle" />
       </Modal>
+
+      <SectionHeader title={`Icons (${iconNames.length})`} subtitle="Lucide, ISC licensed, vendored by scripts/fetch-icons.mjs" icon="palette" />
+      <div className="gallery__icons">
+        {iconNames.map((name) => (
+          <div key={name} className="gallery__icon">
+            <Icon name={name} size={22} />
+            <span>{name}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

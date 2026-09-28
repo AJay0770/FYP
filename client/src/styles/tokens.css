@@ -1,77 +1,135 @@
 /**
- * CSS mirror of src/styles/designSystem.js.
- * Keep the two in sync — same values, two consumers (CSS and JS).
+ * Design tokens - CSS mirror of src/styles/designSystem.js.
+ * Keep the two in sync: same values, two consumers (CSS and JS/Recharts).
+ *
+ * Direction: light for work, dark for emphasis. Data-dense screens use the
+ * light surfaces; the sidebar, hero/welcome banners, the auth brand panel and
+ * highlight blocks use the dark surfaces with the neon accent.
+ *
+ * Contrast (WCAG AA, checked): the neon accent is never text on white - it is
+ * a fill with near-black text (11.5:1) or text on dark surfaces (12.1:1).
+ * Accent *text* on light surfaces uses --accent-strong (5.3:1; darker than the
+ * brief's #0E9F6E, which is only 3.4:1). Status colours are fills/dots; badge
+ * text uses the matching *-text shade.
  */
 
 :root {
-  /* Colors */
-  --color-primary-50: #eef4fb;
-  --color-primary-100: #d6e6f6;
-  --color-primary-300: #7fb0e0;
-  --color-primary-500: #1f6fb2;
-  --color-primary-600: #1a5d96;
-  --color-primary-700: #144a77;
+  /* ---- Surfaces & text ---- */
+  --bg: #F5F6F4;
+  --surface: #FFFFFF;
+  --surface-muted: #F9FAF9;
+  --surface-dark: #0B0D0C;
+  --surface-dark-2: #151917;
+  --surface-dark-3: #1D2220;
+  --text: #111412;
+  --text-muted: #5F6B66;        /* 5.6:1 on white */
+  --text-on-dark: #F4F7F5;
+  --text-muted-on-dark: #9AA6A1; /* 7.8:1 on --surface-dark */
+  --border: #E6E9E7;
+  --border-strong: #CDD3D0;
+  --border-dark: #232826;
 
-  --color-secondary-500: #4a5568;
-  --color-secondary-600: #3a4453;
+  /* ---- Accent ---- */
+  --accent: #2EE6A6;
+  --accent-hover: #22D597;
+  --accent-strong: #0B7A55;     /* accent text/links on light, 5.3:1 */
+  --accent-soft: rgba(46, 230, 166, 0.12);
+  --accent-soft-solid: #E9FBF4;
+  --accent-glow: rgba(46, 230, 166, 0.35);
 
-  --color-accent-400: #f0a202;
-  --color-accent-500: #d98c00;
+  /* ---- Status: base = fills & dots, *-text = text on the soft background ---- */
+  --success: #16A34A;  --success-text: #15803D; --success-soft: #E8F6ED;
+  --warning: #F59E0B;  --warning-text: #B45309; --warning-soft: #FEF4E2;
+  --danger: #EF4444;   --danger-text: #B91C1C;  --danger-soft: #FDECEC;
+  --info: #3B82F6;     --info-text: #1D4ED8;    --info-soft: #EAF1FE;
 
-  --color-white: #ffffff;
-  --color-neutral-50: #f7f8fa;
-  --color-neutral-100: #eceef2;
-  --color-neutral-200: #dcdfe5;
-  --color-neutral-300: #c2c7d0;
-  --color-neutral-500: #6b7280;
-  --color-neutral-700: #3f4652;
-  --color-neutral-900: #1c2027;
+  /* ---- Radius ---- */
+  --radius-input: 8px;
+  --radius-button: 12px;
+  --radius-card: 16px;
+  --radius-hero: 24px;
+  --radius-full: 999px;
 
-  --color-success: #0f7a45;
-  --color-success-bg: #e6f4ec;
-  --color-warning: #8a5a00;
-  --color-warning-bg: #fdf3e2;
-  --color-danger: #b3261e;
-  --color-danger-bg: #fdeceb;
-  --color-info: #1a5d96;
-  --color-info-bg: #e8f0fa;
+  /* ---- Shadow ---- */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 20, 0.04);
+  --shadow-md: 0 4px 16px rgba(16, 24, 20, 0.06);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 20, 0.10);
+  --shadow-accent: 0 8px 24px rgba(46, 230, 166, 0.28);
 
-  --color-online: #0f7a45;
-  --color-offline: #6b7280;
+  /* ---- Spacing (4px scale) ---- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;
 
-  /* Typography */
-  --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* ---- Typography (Inter) ---- */
+  --font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --text-hero: clamp(2rem, 1.4rem + 2.4vw, 2.5rem);   /* 32-40 */
+  --text-title: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem); /* 20-24 */
+  --text-body: 1rem;       /* 16 */
+  --text-secondary: 0.875rem; /* 14 */
+  --text-label: 0.75rem;   /* 12 */
 
-  --font-size-h1: 2rem;
-  --font-size-h2: 1.5rem;
-  --font-size-h3: 1.25rem;
-  --font-size-h4: 1.0625rem;
-  --font-size-body: 0.9375rem;
-  --font-size-body-sm: 0.875rem;
+  /* ---- Motion ---- */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur: 200ms;
+  --dur-slow: 250ms;
+
+  --focus-ring: 0 0 0 3px rgba(46, 230, 166, 0.45);
+  --sidebar-width: 256px;
+  --sidebar-collapsed: 76px;
+  --header-height: 68px;
+
+  /*
+   * ---- Legacy names ----
+   * Mapped onto the new palette so every existing stylesheet picks up the new
+   * look without a rename sweep. New code uses the names above.
+   */
+  --color-primary-50: var(--accent-soft-solid);
+  --color-primary-100: #D2F7EA;
+  --color-primary-300: #7FEFC7;
+  --color-primary-500: var(--accent);
+  --color-primary-600: var(--accent-strong);
+  --color-primary-700: #09633F;
+  --color-secondary-500: var(--text-muted);
+  --color-secondary-600: #333B37;
+  --color-accent-400: var(--accent);
+  --color-accent-500: var(--accent-strong);
+  --color-white: var(--surface);
+  --color-neutral-50: var(--bg);
+  --color-neutral-100: #EEF0EE;
+  --color-neutral-200: var(--border);
+  --color-neutral-300: var(--border-strong);
+  --color-neutral-500: var(--text-muted);
+  --color-neutral-700: #333B37;
+  --color-neutral-900: var(--text);
+  --color-success: var(--success-text);
+  --color-success-bg: var(--success-soft);
+  --color-warning: var(--warning-text);
+  --color-warning-bg: var(--warning-soft);
+  --color-danger: var(--danger-text);
+  --color-danger-bg: var(--danger-soft);
+  --color-info: var(--info-text);
+  --color-info-bg: var(--info-soft);
+  --color-online: var(--success);
+  --color-offline: var(--text-muted);
+  --font-size-h1: var(--text-hero);
+  --font-size-h2: var(--text-title);
+  --font-size-h3: 1.125rem;
+  --font-size-h4: 1rem;
+  --font-size-body: var(--text-body);
+  --font-size-body-sm: var(--text-secondary);
   --font-size-caption: 0.8125rem;
-
-  /* Spacing (8px scale) */
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
-  --space-xxl: 48px;
-
-  /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-pill: 999px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --shadow-md: 0 2px 8px rgba(16, 24, 40, 0.08);
-  --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.12);
-
-  /* Focus ring — same treatment everywhere so focus is never ambiguous */
-  --focus-ring: 0 0 0 3px rgba(31, 111, 178, 0.4);
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-4);
+  --space-lg: var(--space-6);
+  --space-xl: var(--space-8);
+  --space-xxl: var(--space-12);
+  --radius-sm: var(--radius-input);
+  --radius-md: var(--radius-button);
+  --radius-lg: var(--radius-card);
+  --radius-pill: var(--radius-full);
 }
 
 /* ---------- Base ---------- */
@@ -82,34 +140,53 @@
   box-sizing: border-box;
 }
 
+html { -webkit-text-size-adjust: 100%; }
+
 body {
   margin: 0;
   font-family: var(--font-family);
-  font-size: var(--font-size-body);
+  font-size: var(--text-body);
   line-height: 1.55;
-  color: var(--color-neutral-900);
-  background: var(--color-neutral-50);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
 }
 
 h1, h2, h3, h4 {
-  margin: 0 0 var(--space-sm);
-  line-height: 1.3;
-  color: var(--color-neutral-900);
+  margin: 0 0 var(--space-2);
+  line-height: 1.2;
+  color: inherit;
+  letter-spacing: -0.02em;
 }
 
-h1 { font-size: var(--font-size-h1); font-weight: 700; }
-h2 { font-size: var(--font-size-h2); font-weight: 700; }
-h3 { font-size: var(--font-size-h3); font-weight: 600; }
-h4 { font-size: var(--font-size-h4); font-weight: 600; }
+h1 { font-size: var(--text-hero); font-weight: 700; }
+h2 { font-size: var(--text-title); font-weight: 600; }
+h3 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
+h4 { font-size: 1rem; font-weight: 600; letter-spacing: 0; }
 
-p { margin: 0 0 var(--space-sm); }
+p { margin: 0 0 var(--space-2); }
 
 a {
-  color: var(--color-primary-600);
+  color: var(--accent-strong);
   text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 500;
+}
+a:hover { color: var(--color-primary-700); }
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: rgba(17, 20, 18, 0.06);
+  padding: 1px 6px;
+  border-radius: 6px;
 }
 
-a:hover { color: var(--color-primary-700); }
+img, svg, video { max-width: 100%; }
+
+/* KPI figures and table numbers line up column-to-column. */
+.ds-num { font-variant-numeric: tabular-nums; }
 
 /*
  * Global focus treatment. :focus-visible so a mouse click doesn't leave a ring
@@ -120,10 +197,11 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
+summary:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--color-primary-600);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-input);
 }
 
 /* Skip link for keyboard users. */
@@ -131,15 +209,16 @@ textarea:focus-visible,
   position: absolute;
   left: -9999px;
   top: 0;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-primary-600);
-  color: var(--color-white);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-dark);
+  color: var(--text-on-dark);
+  border-radius: var(--radius-button);
   z-index: 100;
 }
 
 .ds-skip-link:focus {
-  left: var(--space-sm);
-  top: var(--space-sm);
+  left: var(--space-2);
+  top: var(--space-2);
 }
 
 /* Visible to screen readers only. */
@@ -155,11 +234,15 @@ textarea:focus-visible,
   border: 0;
 }
 
+::selection { background: var(--accent); color: var(--text); }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
