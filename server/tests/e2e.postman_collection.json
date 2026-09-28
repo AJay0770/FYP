@@ -4294,16 +4294,17 @@
           }
         },
         {
-          "name": "140. Internal safety-alert missing workerId",
+          "name": "140. Internal safety-alert unidentified (no workerId)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Internal safety-alert missing workerId -> 400\", function () {",
-                  "  pm.response.to.have.status(400);",
-                  "});"
+                  "pm.test(\"Internal safety-alert unidentified (no workerId) -> 201\", function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"recorded without a worker\", function () { pm.expect(pm.response.json().workerId).to.equal(null); });"
                 ]
               }
             }

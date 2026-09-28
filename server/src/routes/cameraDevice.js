@@ -4,6 +4,7 @@ const prisma = require('../utils/prisma');
 const { authenticateToken } = require('../middleware/auth');
 const { isEngineerAssigned, userHasProjectAccess } = require('../utils/projectAccess');
 const localDevices = require('../utils/localDevices');
+const { resetCamera } = require('../utils/alertCooldowns');
 
 /**
  * Explicit control of which camera uses a local device (laptop webcam).
@@ -98,6 +99,9 @@ router.post('/:id/device/assign', authenticateToken, async (req, res) => {
     }
 
     await localDevices.assign(camera.rtspUrl, camera.id);
+    // A new feed on this camera: its first violation should alert at once,
+    // not stay silent because of an alert from an earlier session.
+    resetCamera(camera.id);
     res.json(await describe(camera, camera.id, req.user));
   } catch (err) {
     sendError(res, 'Assign camera device', err);

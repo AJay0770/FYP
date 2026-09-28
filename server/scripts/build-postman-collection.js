@@ -337,11 +337,13 @@ safetyItems.push(
   test('Internal safety-alert invalid violationType', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), workerId: V('worker1'), violationType: 'NO_BOOTS', confidence: 0.9 }, expect: 400 }),
   test('Internal safety-alert confidence out of range', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), workerId: V('worker1'), violationType: 'NO_HELMET', confidence: 5 }, expect: 400 }),
   test('Internal safety-alert unknown camera', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: '00000000-0000-4000-8000-999999999999', workerId: V('worker1'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 404 }),
-  // A violation can only ever be recorded against a real, enrolled worker in
-  // the camera's own project (see safety_stream.py's per-worker face
-  // matching) - not just any id string the caller supplies.
+  // A named worker must be a real, enrolled worker in the camera's own
+  // project - not just any id string the caller supplies.
   test('Internal safety-alert unknown worker', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), workerId: '00000000-0000-4000-8000-999999999999', violationType: 'NO_HELMET', confidence: 0.9 }, expect: 404 }),
-  test('Internal safety-alert missing workerId', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 400 }),
+  // No workerId: recorded as an unidentified violation (a bare head the AI
+  // service could not match to an enrolled worker), not rejected.
+  test('Internal safety-alert unidentified (no workerId)', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 201,
+    extra: ['pm.test("recorded without a worker", function () { pm.expect(pm.response.json().workerId).to.equal(null); });'] }),
   test('Internal safety-alert missing fields', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea') }, expect: 400 })
 );
 folders.push({ name: '07 Safety', item: safetyItems });

@@ -135,16 +135,22 @@ ALERT_COOLDOWN_SECONDS = float(os.getenv("ALERT_COOLDOWN_SECONDS", str(15 * 60))
 # Per-worker face matching
 # --------------------------------------------------------------------------
 #
-# Only an enrolled worker can ever be reported as a violation (a bare head on
-# someone who isn't an enrolled worker - a visitor, someone not yet enrolled -
-# is shown on the annotated feed for situational awareness but never alerted
-# or counted as a hazard). This means every hazard detection needs a face
-# match against that camera's project's enrolled workers before it can become
-# an alert, using the same ArcFace/cosine-similarity approach already used for
+# Every hazard detection is face-matched against that camera's project's
+# enrolled workers, so a violation names the worker when it can.
+#
+# A hazard that matches nobody (a visitor, a worker not yet enrolled) is still
+# a real PPE violation on site, so by default it is reported as an
+# *unidentified* violation (workerId null) instead of being dropped - otherwise
+# a site with no enrolled faces would never record a single live alert. Set
+# ALERT_UNIDENTIFIED_VIOLATIONS=false to restore the stricter rule: only
+# matched, enrolled workers are ever alerted; others are shown on the feed only.
+#
+# Matching uses the same ArcFace/cosine-similarity approach already used for
 # attendance (see services/attendance_detector.py) - reused here rather than
 # reinvented, including the same threshold-is-a-similarity-not-a-distance
 # caveat documented in scripts/match_face.py.
 FACE_MATCH_THRESHOLD = float(os.getenv("FACE_MATCH_THRESHOLD", "0.68"))
+ALERT_UNIDENTIFIED = os.getenv("ALERT_UNIDENTIFIED_VIOLATIONS", "true").strip().lower() != "false"
 FACE_MATCH_MODEL = "ArcFace"
 # "opencv", not "retinaface": retinaface crashes outright in this project's
 # actual installed combo (deepface==0.0.71 + retina-face==0.0.18 + TF 2.15) -
@@ -665,14 +671,15 @@ class CameraWorker:
         crop = frame[max(0, y1 - pad_y):min(height, y2 + pad_y), max(0, x1 - pad_x):min(width, x2 + pad_x)]
 
         if crop.size == 0:
-            det.hazard = False
+            if not ALERT_UNIDENTIFIED:
+                det.hazard = False
             return
 
         worker_id, worker_name, _ = match_enrolled_worker(crop, self.camera_id)
         if worker_id:
             det.worker_id = worker_id
             det.worker_name = worker_name
-        else:
+        elif not ALERT_UNIDENTIFIED:
             det.hazard = False
 
     def _annotate(self, frame, detections: list[Detection]):
@@ -751,21 +758,24 @@ class CameraWorker:
     def _maybe_alert(self, detections: list[Detection], frame) -> None:
         """POST the highest-confidence hazard per (worker, violation type), rate-limited.
 
-        Only detections already attributed to an enrolled worker reach here -
-        `_attribute_worker` downgrades anything unmatched to hazard=False, so
-        an unidentified bare head never becomes an alert. The Node API applies
+        A hazard matched to an enrolled worker is reported against that worker;
+        an unmatched one is reported as unidentified (workerId null), unless
+        ALERT_UNIDENTIFIED_VIOLATIONS=false, in which case `_attribute_worker`
+        has already downgraded it to hazard=False. The Node API applies
         its own matching cooldown; this one exists so a busy site does not
         spend the whole frame budget on HTTP round-trips the server will only
         reject.
         """
-        hazards = [d for d in detections if d.hazard and d.worker_id]
+        hazards = [d for d in detections if d.hazard and (d.worker_id or ALERT_UNIDENTIFIED)]
         if not hazards or not self.camera_id:
             return
 
         by_key: dict[tuple[str, str], Detection] = {}
         for det in hazards:
             violation = VIOLATION_TYPE_MAP.get(det.label, NO_PPE_VIOLATION_TYPE)
-            key = (det.worker_id, violation)
+            # Unidentified people share one key, so one bare head in frame for
+            # a while alerts once per cooldown, not once per inference.
+            key = (det.worker_id or "unidentified", violation)
             if key not in by_key or det.confidence > by_key[key].confidence:
                 by_key[key] = det
 
@@ -981,6 +991,10 @@ def assign_device(source: str, camera_id: str) -> CameraWorker:
         current = _workers.get(key)
         if current is not None and current.alive:
             current.pinned = True
+            # Re-assigning counts as starting the feed again: clear its alert
+            # cooldowns so the next violation alerts at once. (A freshly
+            # created worker below starts with none.)
+            current._cooldowns.clear()
             return current
         previous = [w for k, w in _device_workers_locked(resolved) if k != key]
         for k, w in list(_workers.items()):

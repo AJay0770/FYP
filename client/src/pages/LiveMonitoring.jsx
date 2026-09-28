@@ -162,7 +162,7 @@ export default function LiveMonitoring({ projectId }) {
       setAlerts((prev) => [alert, ...prev].slice(0, 10))
       push({
         variant: 'danger',
-        title: `${alert.violationType.replace('_', ' ')} detected${alert.worker ? ` — ${alert.worker.name}` : ''}`,
+        title: `${alert.violationType.replace('_', ' ')} detected — ${alert.worker ? alert.worker.name : 'unidentified person'}`,
         message: `${alert.camera?.name ?? 'Camera'} · confidence ${Number(alert.confidenceScore).toFixed(2)}`,
       })
     }
@@ -222,7 +222,7 @@ export default function LiveMonitoring({ projectId }) {
     {
       key: 'worker',
       header: 'Worker',
-      render: (row) => row.worker?.name || <span className="ds-muted">—</span>,
+      render: (row) => row.worker?.name || <span className="ds-muted">Unidentified</span>,
     },
     { key: 'confidenceScore', header: 'Confidence', render: (row) => Number(row.confidenceScore).toFixed(2) },
     { key: 'createdAt', header: 'When', render: (row) => new Date(row.createdAt).toLocaleTimeString() },

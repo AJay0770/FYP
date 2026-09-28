@@ -38,7 +38,7 @@ export default function SafetyAlertsPanel({ projectId }) {
       setTotal((prev) => prev + 1)
       push({
         variant: 'danger',
-        title: `${alert.violationType.replace('_', ' ')} detected${alert.worker ? ` — ${alert.worker.name}` : ''}`,
+        title: `${alert.violationType.replace('_', ' ')} detected — ${alert.worker ? alert.worker.name : 'unidentified person'}`,
         message: `${alert.camera?.name ?? 'Unknown camera'} · confidence ${Number(alert.confidenceScore).toFixed(2)}`,
       })
     }
@@ -68,7 +68,8 @@ export default function SafetyAlertsPanel({ projectId }) {
             {row.worker.employeeId && <span className="ds-muted"> ({row.worker.employeeId})</span>}
           </span>
         ) : (
-          <span className="ds-muted">—</span>
+          // No enrolled worker matched the face: still a real violation.
+          <span className="ds-muted">Unidentified</span>
         ),
     },
     {
