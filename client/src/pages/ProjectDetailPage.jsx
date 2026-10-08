@@ -1,7 +1,7 @@
 import { useEffect, useState, useContext } from 'react'
 import api from '../api/axios'
 import { AuthContext } from '../context/AuthContext'
-import { Badge, Button, Card, Row, statusVariant } from '../components/ui'
+import { Button, Card, Row } from '../components/ui'
 import ChatPanel from '../components/ChatPanel'
 import SafetyAlertsPanel from '../components/SafetyAlertsPanel'
 import SiteUpdatesPanel from '../components/SiteUpdatesPanel'
@@ -12,8 +12,11 @@ import LiveMonitoring from './LiveMonitoring'
 import AttendancePage from './AttendancePage'
 import AnalyticsDashboard from './AnalyticsDashboard'
 import ReportsPage from './ReportsPage'
+import ProjectStatusControl from '../components/ProjectStatusControl'
+import ProjectEngineers from '../components/ProjectEngineers'
+import ProjectActions from '../components/ProjectActions'
 
-export default function ProjectDetailPage({ projectId, onBack }) {
+export default function ProjectDetailPage({ projectId, onBack, onDeleted }) {
   const { token } = useContext(AuthContext)
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -60,6 +63,7 @@ export default function ProjectDetailPage({ projectId, onBack }) {
     <div>
       <Button variant="ghost" size="sm" onClick={onBack}>&larr; All projects</Button>
 
+      {/* ▼ EDIT: project title area (name, address, client, dates, engineers, status). Styles: App.css "Project detail" */}
       <div className="project-header">
         <div>
           <h1 style={{ marginBottom: 'var(--space-xs)' }}>{project.name}</h1>
@@ -71,8 +75,20 @@ export default function ProjectDetailPage({ projectId, onBack }) {
               {new Date(project.expectedCompletionDate).toLocaleDateString()}
             </span>
           </div>
+          <ProjectEngineers
+            project={project}
+            onAssigned={(row) => setProject((p) => ({ ...p, engineers: [...(p.engineers || []), row] }))}
+            onRemoved={(engineerId) => setProject((p) => ({ ...p, engineers: (p.engineers || []).filter((e) => e.engineerId !== engineerId) }))}
+          />
         </div>
-        <Badge variant={statusVariant(project.status)} dot>{project.status.replace('_', ' ')}</Badge>
+        <div className="project-header__controls">
+          <ProjectStatusControl project={project} onChange={(status) => setProject((p) => ({ ...p, status }))} />
+          <ProjectActions
+            project={project}
+            onUpdated={(updated) => setProject((p) => ({ ...p, ...updated }))}
+            onDeleted={onDeleted || onBack}
+          />
+        </div>
       </div>
 
       <Row style={{ marginBottom: 'var(--space-lg)' }}>
@@ -94,6 +110,7 @@ export default function ProjectDetailPage({ projectId, onBack }) {
         </Button>
       </Row>
 
+      {/* ▼ EDIT: ORDER of the panels on a project page - move these lines to reorder, delete one to hide it */}
       {tab === 'overview' && (
         <>
           <AnalyticsDashboard projectId={projectId} />

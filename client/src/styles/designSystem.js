@@ -88,6 +88,7 @@ export const breakpoints = { mobile: '375px', tablet: '768px', laptop: '1024px',
 
 // Chart palette, categorical order. The accent leads; the others stay
 // distinguishable for common colour-vision deficiencies (no red/green-only pair).
+// ▼ EDIT: chart colours (bars/lines in Analytics). Keep in sync with tokens.css
 export const chartColors = [colors.accent, colors.info, colors.warning, colors.textMuted, colors.danger]
 
 export const chartTheme = {

@@ -3,7 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const prisma = require('../utils/prisma');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
-const { PLAN_LIMITS } = require('../middleware/subscriptionGate');
+const { PLAN_LIMITS, countOpenProjects } = require('../middleware/subscriptionGate');
 
 const PLANS = {
   BASIC: { price: 5000, currency: 'PKR', projects: PLAN_LIMITS.BASIC },
@@ -103,7 +103,8 @@ router.get('/subscription', authenticateToken, authorizeRole('ADMIN'), async (re
       return res.json({ subscription: null, plan: 'NONE', status: 'NONE' });
     }
 
-    const projectCount = await prisma.project.count({ where: { createdById: req.user.userId } });
+    // Same count the project limit uses (COMPLETED projects don't take a slot).
+    const projectCount = await countOpenProjects(req.user.userId);
     const limit = PLAN_LIMITS[subscription.plan];
 
     res.json({

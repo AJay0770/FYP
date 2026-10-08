@@ -34,6 +34,7 @@ export function Spinner({ size = 16, label }) {
  * width, and disables it so an in-flight action can't be submitted twice.
  * `icon` / `iconRight` take an icon name. onClick/type pass straight through.
  */
+// ▼ EDIT: Button behaviour and variants. Its LOOK (colours, padding, size) is in ui.css under "Button"
 export function Button({
   variant = 'primary',
   size = 'md',
@@ -241,6 +242,7 @@ export function FileInput({ label, hint, error, required, id, onChange, accept, 
  * variant: light (default) | dark. `interactive` adds the hover lift for
  * clickable cards. `icon` sits beside the title.
  */
+// ▼ EDIT: Card (the white boxes). Its padding/border/shadow are in ui.css under "Card"
 export function Card({
   title,
   subtitle,
@@ -339,6 +341,7 @@ export function StatCard({ icon, label, value, suffix, sub, variant = 'light', t
  * variant: neutral | success | warning | danger | info | accent | dark.
  * `pulse` animates the dot - for LIVE cameras and fresh safety alerts.
  */
+// ▼ EDIT: Badge (small coloured pills like ACTIVE / NO HELMET)
 export function Badge({ variant = 'neutral', dot = false, pulse = false, icon, children }) {
   return (
     <span className={cx('ds-badge', `ds-badge--${variant}`, pulse && 'ds-badge--pulse')}>
@@ -352,6 +355,7 @@ export function Badge({ variant = 'neutral', dot = false, pulse = false, icon, c
 }
 
 /** Maps domain values to badge variants so status colouring stays consistent. */
+// ▼ EDIT: which colour each status gets (e.g. make PLANNING yellow instead of blue)
 export function statusVariant(value) {
   const map = {
     ONLINE: 'success', OFFLINE: 'neutral',
@@ -398,6 +402,7 @@ export function Skeleton({ width = '100%', height = 14, radius, lines, className
  * `loading` shows skeleton rows; `emptyState` (a node) replaces the plain
  * `empty` text when there are no rows.
  */
+// ▼ EDIT: Table (all data tables). Row padding/header style are in ui.css under "Table"
 export function Table({
   columns,
   rows,
@@ -480,15 +485,22 @@ export function Table({
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+// ▼ EDIT: Modal (popup dialogs)
 export function Modal({ open, title, onClose, footer, children }) {
   const dialogRef = useRef(null)
+  // Callers usually pass an inline onClose, which is a new function on every
+  // render. Read it through a ref so the effect below runs only when the modal
+  // opens/closes - otherwise each re-render (e.g. typing in a field inside the
+  // modal) would re-run it and yank focus back to the dialog.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (!open) return undefined
     const returnFocusTo = document.activeElement
 
     const onKeyDown = (e) => {
-      if (e.key === 'Escape') onClose?.()
+      if (e.key === 'Escape') onCloseRef.current?.()
       // Keep Tab inside the dialog while it is open.
       if (e.key === 'Tab' && dialogRef.current) {
         const items = [...dialogRef.current.querySelectorAll(FOCUSABLE)]
@@ -518,7 +530,7 @@ export function Modal({ open, title, onClose, footer, children }) {
       document.body.style.overflow = previousOverflow
       if (returnFocusTo && returnFocusTo.focus) returnFocusTo.focus()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 

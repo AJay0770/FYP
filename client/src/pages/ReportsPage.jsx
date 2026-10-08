@@ -64,12 +64,14 @@ export default function ReportsPage({ projectId }) {
     },
   ]
 
+  // ▼ EDIT: Reports card: Daily/Weekly generate buttons and the reports table below
   return (
     <Card
       title="Reports"
       subtitle="Generated automatically daily and weekly, or on demand"
       actions={
-        user?.role === 'ADMIN' ? (
+        // Admins, and engineers on their own projects (the server checks assignment).
+        user?.role === 'ADMIN' || user?.role === 'ENGINEER' ? (
           <Row>
             <Button size="sm" variant="secondary" onClick={() => generate('DAILY')} disabled={generating}>
               {generating ? 'Generating…' : 'Generate daily'}

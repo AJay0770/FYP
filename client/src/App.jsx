@@ -6,14 +6,16 @@ import RegisterPage from './pages/RegisterPage'
 import LoginPage from './pages/LoginPage'
 import ProjectListPage from './pages/ProjectListPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
+import NewProjectPage from './pages/NewProjectPage'
 import BillingPage from './pages/BillingPage'
+import UsersPage from './pages/UsersPage'
 import ComponentGallery from './pages/ComponentGallery'
 import './App.css'
 
 function AppContent() {
   const { user, logout } = useContext(AuthContext)
   const [apiStatus, setApiStatus] = useState('checking')
-  const [view, setView] = useState('list') // list | detail | billing | gallery
+  const [view, setView] = useState('list') // list | create | detail | billing | users | gallery
   const [selectedProjectId, setSelectedProjectId] = useState(null)
 
   useEffect(() => {
@@ -48,6 +50,7 @@ function AppContent() {
     <>
       <a className="ds-skip-link" href="#main">Skip to main content</a>
 
+      {/* ▼ EDIT: top bar content (logo, API status, nav buttons, log out). Styles: App.css ".app-header" */}
       <header className="app-header">
         <div className="app-header__inner">
           <Row>
@@ -59,9 +62,19 @@ function AppContent() {
 
           {user && (
             <Row>
+              {/* ▼ EDIT: right side of the top bar: user email/role and the nav buttons (Users, Billing, Components, Log out) */}
               <span className="app-header__user">
                 {user.email} <Badge variant="info">{user.role}</Badge>
               </span>
+              {user.role === 'ADMIN' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setView(view === 'users' ? 'list' : 'users')}
+                >
+                  {view === 'users' ? 'Projects' : 'Users'}
+                </Button>
+              )}
               {user.role === 'ADMIN' && (
                 <Button
                   variant="ghost"
@@ -84,14 +97,25 @@ function AppContent() {
         </div>
       </header>
 
+      {/* ▼ EDIT: which page shows for each view (list / create / detail / billing / users / gallery) */}
       <main id="main" className="app-main">
         {user ? (
           <>
-            {view === 'list' && <ProjectListPage onSelectProject={handleSelectProject} />}
+            {view === 'list' && (
+              <ProjectListPage onSelectProject={handleSelectProject} onCreateProject={() => setView('create')} />
+            )}
+            {view === 'create' && (
+              <NewProjectPage
+                onCancel={handleBackToList}
+                onCreated={(project) => handleSelectProject(project.id)}
+                onOpenBilling={() => setView('billing')}
+              />
+            )}
             {view === 'detail' && (
               <ProjectDetailPage projectId={selectedProjectId} onBack={handleBackToList} />
             )}
             {view === 'billing' && <BillingPage />}
+            {view === 'users' && <UsersPage />}
             {view === 'gallery' && <ComponentGallery onBack={() => setView('list')} />}
           </>
         ) : (

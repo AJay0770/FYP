@@ -6,6 +6,16 @@ const { isEngineerAssigned, userHasProjectAccess } = require('../utils/projectAc
 
 const ENTRY_TYPES = ['RECEIVED', 'CONSUMED'];
 
+// Bad numbers or dates would otherwise reach Prisma and surface as a 500.
+function valueProblem(quantity, unitCost, date) {
+  const q = quantity === null || quantity === '' ? NaN : Number(quantity);
+  const c = unitCost === null || unitCost === '' ? NaN : Number(unitCost);
+  if (!Number.isFinite(q) || q <= 0) return 'quantity must be a number greater than 0';
+  if (!Number.isFinite(c) || c < 0) return 'unitCost must be a number of 0 or more';
+  if (Number.isNaN(new Date(date).getTime())) return 'date must be a valid date';
+  return null;
+}
+
 // POST /api/projects/:id/materials (ADMIN, or ENGINEER assigned to project)
 router.post('/', authenticateToken, authorizeRole('ADMIN', 'ENGINEER'), async (req, res) => {
   try {
@@ -19,6 +29,8 @@ router.post('/', authenticateToken, authorizeRole('ADMIN', 'ENGINEER'), async (r
     if (!ENTRY_TYPES.includes(entryType)) {
       return res.status(400).json({ error: 'entryType must be RECEIVED or CONSUMED' });
     }
+    const invalid = valueProblem(quantity, unitCost, date);
+    if (invalid) return res.status(400).json({ error: invalid });
 
     if (req.user.role === 'ENGINEER') {
       const assigned = await isEngineerAssigned(projectId, req.user.userId);
@@ -42,6 +54,8 @@ router.post('/', authenticateToken, authorizeRole('ADMIN', 'ENGINEER'), async (r
 
     res.status(201).json(entry);
   } catch (err) {
+    // P2003: an ADMIN posted to a project id that doesn't exist.
+    if (err.code === 'P2003') return res.status(404).json({ error: 'Project not found' });
     console.error('Create material entry error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -60,6 +74,8 @@ router.put('/:materialId', authenticateToken, authorizeRole('ADMIN', 'ENGINEER')
     if (!ENTRY_TYPES.includes(entryType)) {
       return res.status(400).json({ error: 'entryType must be RECEIVED or CONSUMED' });
     }
+    const invalid = valueProblem(quantity, unitCost, date);
+    if (invalid) return res.status(400).json({ error: invalid });
 
     if (req.user.role === 'ENGINEER') {
       const assigned = await isEngineerAssigned(projectId, req.user.userId);

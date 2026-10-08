@@ -334,8 +334,9 @@ router.get('/detections/latest', authenticateToken, async (req, res) => {
     detections: snapshot?.detections ?? [],
     // Matches the trained model's real classes (ai-service/TRAINING.md): `head`
     // is a bare head with no helmet - the actual NO_HELMET violation signal,
-    // not a separate concept. There is no negative class for vests yet.
-    counts: snapshot?.counts ?? { helmet: 0, vest: 0, head: 0 },
+    // not a separate concept. Vests are not reported: there is no "missing
+    // vest" class, and the detection service hides the vest class entirely.
+    counts: snapshot?.counts ?? { helmet: 0, head: 0 },
     hazardCount: snapshot?.hazardCount ?? 0,
     frameSize: snapshot?.frameSize ?? null,
     modelLoaded: snapshot?.modelLoaded ?? false,

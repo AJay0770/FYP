@@ -14,6 +14,7 @@
  */
 
 :root {
+  /* ▼ EDIT: page background, card colour, text colours and borders for the WHOLE site */
   /* ---- Surfaces & text ---- */
   --bg: #F5F6F4;
   --surface: #FFFFFF;
@@ -29,6 +30,7 @@
   --border-strong: #CDD3D0;
   --border-dark: #232826;
 
+  /* ▼ EDIT: the green brand colour (primary buttons, active tabs, highlights) */
   /* ---- Accent ---- */
   --accent: #2EE6A6;
   --accent-hover: #22D597;
@@ -37,12 +39,14 @@
   --accent-soft-solid: #E9FBF4;
   --accent-glow: rgba(46, 230, 166, 0.35);
 
+  /* ▼ EDIT: success / warning / danger / info colours (badges, alerts) */
   /* ---- Status: base = fills & dots, *-text = text on the soft background ---- */
   --success: #16A34A;  --success-text: #15803D; --success-soft: #E8F6ED;
   --warning: #F59E0B;  --warning-text: #B45309; --warning-soft: #FEF4E2;
   --danger: #EF4444;   --danger-text: #B91C1C;  --danger-soft: #FDECEC;
   --info: #3B82F6;     --info-text: #1D4ED8;    --info-soft: #EAF1FE;
 
+  /* ▼ EDIT: how rounded corners are (inputs, buttons, cards, big blocks) */
   /* ---- Radius ---- */
   --radius-input: 8px;
   --radius-button: 12px;
@@ -50,16 +54,19 @@
   --radius-hero: 24px;
   --radius-full: 999px;
 
+  /* ▼ EDIT: card and popup shadows */
   /* ---- Shadow ---- */
   --shadow-sm: 0 1px 2px rgba(16, 24, 20, 0.04);
   --shadow-md: 0 4px 16px rgba(16, 24, 20, 0.06);
   --shadow-lg: 0 12px 32px rgba(16, 24, 20, 0.10);
   --shadow-accent: 0 8px 24px rgba(46, 230, 166, 0.28);
 
+  /* ▼ EDIT: the spacing scale used for padding and gaps everywhere */
   /* ---- Spacing (4px scale) ---- */
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
   --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;
 
+  /* ▼ EDIT: font family and font sizes (titles, body text, labels) */
   /* ---- Typography (Inter) ---- */
   --font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -69,6 +76,7 @@
   --text-secondary: 0.875rem; /* 14 */
   --text-label: 0.75rem;   /* 12 */
 
+  /* ▼ EDIT: animation speed (hover, open/close). Make these 0ms to turn animations off */
   /* ---- Motion ---- */
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur-fast: 150ms;

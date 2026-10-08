@@ -71,6 +71,25 @@ export default function useCameraDevice(camera) {
   }
 }
 
+/**
+ * Human name for a local device. Device 0 is the laptop's built-in webcam;
+ * higher numbers are extra cameras plugged in by USB (1 = the first one).
+ */
+export function deviceNoun(source) {
+  return String(source ?? '').trim() === '0' ? 'webcam' : 'USB camera'
+}
+export function deviceLabel(source) {
+  const n = String(source ?? '').trim()
+  return n === '0' ? 'laptop webcam' : `USB camera ${n}`
+}
+/** Hint under a camera "Source" field. */
+export function sourceHint(source) {
+  const s = String(source ?? '').trim()
+  if (s === '0') return 'Laptop webcam'
+  if (isLocalDeviceSource(s)) return `USB camera (device ${s})`
+  return 'RTSP / HTTP camera URL'
+}
+
 /** "West Side (Riverside Tower)", or a neutral label when the holder is hidden. */
 export function holderLabel(status) {
   const h = status?.holder

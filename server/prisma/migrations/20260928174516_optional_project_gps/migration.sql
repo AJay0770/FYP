@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "projects" ALTER COLUMN "gpsLat" DROP NOT NULL,
+ALTER COLUMN "gpsLng" DROP NOT NULL;

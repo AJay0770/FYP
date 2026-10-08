@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState } from 'react'
 import api from '../api/axios'
-import socket, { connectSocket } from '../api/socket'
+import socket, { joinProjectRoom } from '../api/socket'
 import { AuthContext } from '../context/AuthContext'
 import { Badge, Button, Card, Input, Modal, Table, ToastRegion, useToasts } from '../components/ui'
 
@@ -51,8 +51,7 @@ export default function MediaPanel({ projectId, token }) {
   // chat" working even if MediaPanel somehow renders before ChatPanel does.
   useEffect(() => {
     if (!token || !projectId) return
-    const s = connectSocket(token)
-    s.emit('project:join', { projectId })
+    return joinProjectRoom(token, projectId).stopRejoining
   }, [token, projectId])
 
   const openUploadForm = () => {
@@ -191,6 +190,7 @@ export default function MediaPanel({ projectId, token }) {
 
       {loading && <p className="ds-muted">Loading…</p>}
       {!loading && error && <p className="ds-field__error" role="alert">{error}</p>}
+      {/* ▼ EDIT: media library table - columns in "const columns" above */}
       {!loading && !error && <Table columns={columns} rows={assets} empty="No media yet" hover={false} />}
 
       <Modal

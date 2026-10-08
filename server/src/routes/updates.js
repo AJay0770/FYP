@@ -48,8 +48,11 @@ router.post('/', authenticateToken, authorizeRole('ENGINEER'), async (req, res) 
     const { id: projectId } = req.params;
     const { description, mediaUrls } = req.body;
 
-    if (!description) {
+    if (typeof description !== 'string' || !description.trim()) {
       return res.status(400).json({ error: 'description is required' });
+    }
+    if (mediaUrls !== undefined && (!Array.isArray(mediaUrls) || !mediaUrls.every((u) => typeof u === 'string'))) {
+      return res.status(400).json({ error: 'mediaUrls must be a list of URLs' });
     }
 
     const assigned = await isEngineerAssigned(projectId, req.user.userId);

@@ -177,6 +177,13 @@ MAX_WORKERS = int(os.getenv("MAX_CAMERA_WORKERS", "8"))
 # project never actually trained.
 CLASS_NAMES = ["helmet", "vest", "head"]
 
+# Classes the model can detect but the site must not show. `vest` is hidden by
+# default: there is no "missing vest" class, so vest detections can't drive a
+# real NO_VEST violation, and showing vest boxes/counts would suggest a vest
+# check that doesn't exist. Hidden detections are dropped before drawing,
+# counting, alerting or reporting. Set HIDDEN_CLASSES= (empty) to show all.
+HIDDEN_CLASSES = {c.strip().lower() for c in os.getenv("HIDDEN_CLASSES", "vest").split(",") if c.strip()}
+
 # `head` (bare head, no helmet) is this model's actual hazard signal. The
 # no_ppe/no_helmet/no_vest spellings are kept too in case a future retrain
 # adds explicit negative classes per TRAINING.md's other documented option.
@@ -277,6 +284,11 @@ def get_class_names() -> dict[int, str]:
     wrapper itself - only on the underlying nn.Module (`model.model.names`).
     Checking the wrapper first keeps this working if that pin is ever upgraded.
     """
+    return {i: n for i, n in _all_class_names().items() if str(n).strip().lower() not in HIDDEN_CLASSES}
+
+
+def _all_class_names() -> dict[int, str]:
+    """Every class the model knows, hidden ones included (for decoding ids)."""
     if _model is not None:
         names = getattr(_model, "names", None) or getattr(_model.model, "names", None)
         if names:
@@ -348,6 +360,11 @@ def _get_enrolled_workers(camera_id: str) -> dict:
     return fresh
 
 
+# Serialises use of the one shared ArcFace model: violation attribution runs
+# on camera threads and the attendance scan on a request thread.
+_face_lock = threading.Lock()
+
+
 def match_enrolled_worker(face_crop, camera_id: str | None) -> tuple[str | None, str | None, float]:
     """Return (worker_id, worker_name, similarity) for the best enrolled match,
     or (None, None, 0.0) if no enrolled worker matches (or none are enrolled,
@@ -366,12 +383,13 @@ def match_enrolled_worker(face_crop, camera_id: str | None) -> tuple[str | None,
     try:
         from deepface import DeepFace
 
-        embedding = DeepFace.represent(
-            img_path=face_crop,
-            model_name=FACE_MATCH_MODEL,
-            detector_backend=FACE_MATCH_DETECTOR_BACKEND,
-            enforce_detection=True,
-        )
+        with _face_lock:
+            embedding = DeepFace.represent(
+                img_path=face_crop,
+                model_name=FACE_MATCH_MODEL,
+                detector_backend=FACE_MATCH_DETECTOR_BACKEND,
+                enforce_detection=True,
+            )
     except ValueError:
         return None, None, 0.0  # no face in the crop
     except Exception:
@@ -531,11 +549,21 @@ class CameraWorker:
     # -- capture loop ------------------------------------------------------
 
     def _open(self):
-        # CAP_FFMPEG is right for network/file sources; leave the backend to
-        # OpenCV for local devices so Windows/DirectShow and V4L2 both work.
+        # CAP_FFMPEG is right for network/file sources.
         if self.source_type in ("rtsp", "http", "file", "rtmp", "udp", "tcp"):
             capture = cv2.VideoCapture(self.capture_arg, cv2.CAP_FFMPEG)
+        elif self.source_type == "device_index" and os.name == "nt":
+            # Windows: DirectShow first. OpenCV's default there (Media
+            # Foundation) took ~24 s to open a plain USB camera - measured,
+            # every time - past the Node API's 12 s first-frame timeout, so
+            # the feed always failed; DirectShow opened it in under a second.
+            # Fall back to the default for devices DirectShow can't open.
+            capture = cv2.VideoCapture(self.capture_arg, cv2.CAP_DSHOW)
+            if not capture.isOpened():
+                capture.release()
+                capture = cv2.VideoCapture(self.capture_arg)
         else:
+            # Linux V4L2 and others: let OpenCV pick its native backend.
             capture = cv2.VideoCapture(self.capture_arg)
 
         # Keep the decoder from queueing stale frames: on a live feed we always
@@ -633,7 +661,7 @@ class CameraWorker:
         # only accepts a real file path here, not an in-memory frame.
         cv2.imwrite(str(self._infer_frame_path), frame)
         detected = model.predict(source=str(self._infer_frame_path), conf=CONFIDENCE_THRESHOLD, verbose=False)[0]
-        names = get_class_names()
+        names = _all_class_names()
 
         # Same version gap: predict() returns a plain [N, 6] tensor
         # (x1, y1, x2, y2, conf, cls) per image here, not a Results object
@@ -641,6 +669,8 @@ class CameraWorker:
         detections: list[Detection] = []
         for x1, y1, x2, y2, confidence, cls_id in detected.tolist():
             label = str(names.get(int(cls_id), int(cls_id))).strip().lower()
+            if label in HIDDEN_CLASSES:
+                continue
             det = Detection(
                 label=label,
                 confidence=float(confidence),
@@ -869,6 +899,20 @@ class CameraWorker:
             if payload:
                 self.last_viewer_at = time.time()
                 yield payload
+
+    def latest_raw_frame(self, after_seq: int = -1, timeout: float = 2.0) -> tuple[int, bytes | None]:
+        """(seq, JPEG) of the newest unannotated frame newer than `after_seq`.
+
+        Waits up to `timeout` for one; returns (after_seq, None) if none came.
+        Counts as viewing, so an unpinned worker isn't reaped mid-scan.
+        """
+        self.last_viewer_at = time.time()
+        with self._frame_event:
+            if self._frame_seq == after_seq:
+                self._frame_event.wait(timeout=timeout)
+            if self._frame_seq == after_seq:
+                return after_seq, None
+            return self._frame_seq, (self._latest_raw_jpeg or self._latest_jpeg)
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -1241,6 +1285,128 @@ def devices_release(
 ) -> dict:
     """Free a local device held by this camera."""
     return {"released": release_device(source, camera_id)}
+
+
+# --------------------------------------------------------------------------
+# On-demand attendance scan ("Detect & mark attendance" in the app)
+# --------------------------------------------------------------------------
+
+def _embed_face(frame):
+    """L2-normalised ArcFace embedding of the face in `frame`, or None if no face."""
+    import numpy as np
+    from deepface import DeepFace
+
+    try:
+        with _face_lock:
+            embedding = DeepFace.represent(
+                img_path=frame,
+                model_name=FACE_MATCH_MODEL,
+                detector_backend=FACE_MATCH_DETECTOR_BACKEND,
+                enforce_detection=True,
+            )
+    except ValueError:
+        return None  # no face in this frame
+    vector = np.array(embedding, dtype=np.float64)
+    norm = np.linalg.norm(vector)
+    return vector / norm if norm else None
+
+
+def _record_checkin(worker_id: str, confidence: float) -> str:
+    """POST a check-in to the Node API. Returns checked_in | already_checked_in | error.
+
+    Same endpoint as services/attendance_detector.py, so the server's
+    one-check-in-per-worker-per-day rule and live socket update both apply.
+    """
+    try:
+        response = requests.post(
+            f"{NODE_API_URL}/api/internal/attendance-record",
+            json={"workerId": worker_id, "confidence": round(float(confidence), 4)},
+            headers={"X-Internal-Token": INTERNAL_TOKEN},
+            timeout=15,
+        )
+    except requests.RequestException as exc:
+        log.error("Attendance check-in POST failed: %s", exc)
+        return "error"
+    if response.status_code == 201:
+        return "checked_in"
+    if response.status_code == 200 and response.json().get("duplicate"):
+        return "already_checked_in"
+    log.error("Attendance check-in rejected (%s): %s", response.status_code, response.text[:200])
+    return "error"
+
+
+@app.post("/attendance/scan")
+def attendance_scan(
+    source: str = Query(...),
+    camera_id: str = Query(..., alias="cameraId"),
+    seconds: float = Query(12.0, ge=3.0, le=30.0),
+):
+    """Look for enrolled workers' faces on a camera for `seconds`, and check them in.
+
+    Reads the frames this service is already decoding for the camera - it
+    never opens the device a second time - so for a laptop webcam the webcam
+    must be assigned to this camera first. The enrolled-worker list is
+    fetched fresh (not the 5-minute alert cache), so a worker enrolled a
+    moment ago is recognised. Stops early once every enrolled worker matched.
+    """
+    import numpy as np
+
+    try:
+        worker = get_worker(source, camera_id)
+    except DeviceNotAssigned as exc:
+        return JSONResponse(
+            {"error": f"device {exc.source} is not assigned to this camera", "holderCameraId": exc.holder_camera_id},
+            status_code=409,
+        )
+
+    enrolled = _fetch_enrolled_workers(camera_id)
+    result = {
+        "threshold": FACE_MATCH_THRESHOLD,
+        "enrolledWorkers": len(enrolled["ids"]),
+        "framesChecked": 0,
+        "facesSeen": 0,
+        "closestUnmatched": None,
+        "matches": [],
+    }
+    if enrolled["vectors"] is None:
+        return result
+
+    matched: dict[str, dict] = {}
+    seq = -1
+    deadline = time.time() + seconds
+    while time.time() < deadline and len(matched) < len(enrolled["ids"]):
+        seq, jpeg = worker.latest_raw_frame(seq, timeout=min(2.0, max(0.1, deadline - time.time())))
+        if jpeg is None:
+            continue
+        frame = cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_COLOR)
+        if frame is None:
+            continue
+        result["framesChecked"] += 1
+
+        probe = _embed_face(frame)
+        if probe is None:
+            continue
+        result["facesSeen"] += 1
+
+        similarities = enrolled["vectors"] @ probe
+        best = int(np.argmax(similarities))
+        score = float(similarities[best])
+        if score < FACE_MATCH_THRESHOLD:
+            result["closestUnmatched"] = max(result["closestUnmatched"] or -1.0, round(score, 4))
+            continue
+
+        worker_id = enrolled["ids"][best]
+        if worker_id not in matched:
+            matched[worker_id] = {
+                "workerId": worker_id,
+                "name": enrolled["names"][best],
+                "confidence": round(score, 4),
+                "status": _record_checkin(worker_id, score),
+            }
+            log.info("Attendance scan: %s -> %s (%.4f)", enrolled["names"][best], matched[worker_id]["status"], score)
+
+    result["matches"] = list(matched.values())
+    return result
 
 
 @app.get("/stats")

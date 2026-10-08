@@ -39,8 +39,8 @@ enum Role {
 model Project {
   id                      String   @id @default(uuid())
   name                    String
-  gpsLat                  Float
-  gpsLng                  Float
+  gpsLat                  Float?
+  gpsLng                  Float?
   address                 String
   clientId                String
   client                  User     @relation("ClientId", fields: [clientId], references: [id], onDelete: Cascade)

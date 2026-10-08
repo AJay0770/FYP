@@ -75,7 +75,7 @@ export default function BillingPage() {
                 {current.projectCount}
                 <span className="ds-muted" style={{ fontSize: '1rem' }}> / {current.projectLimit}</span>
               </div>
-              <div className="stat__label">Projects used</div>
+              <div className="stat__label">Open projects (Completed ones don&apos;t count)</div>
             </div>
           </div>
         ) : (
@@ -83,6 +83,7 @@ export default function BillingPage() {
         )}
       </Card>
 
+      {/* ▼ EDIT: plan cards and the Subscribe buttons (layout: App.css "Plans") */}
       <Card title="Plans">
         {message && <p className="ds-field__hint" role="status">{message}</p>}
         <div className="plan-grid">

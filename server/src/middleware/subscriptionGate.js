@@ -11,35 +11,68 @@ const PLAN_LIMITS = {
 // product is usable before billing is set up. Tighten if that's not desired.
 const FREE_TIER_LIMIT = 2;
 
+// Engineers can create projects too. Their allowance follows the company's
+// plan (the admin's active subscription - this app is single-company); with
+// no active plan they get this many.
+const ENGINEER_DEFAULT_LIMIT = 5;
+
+function upgradeMessage(role, limit) {
+  const allows = `Your plan allows ${limit} open project${limit === 1 ? '' : 's'} at a time. Mark a finished project Completed to free a slot`;
+  return role === 'ADMIN'
+    ? `${allows}, or upgrade the plan in Billing.`
+    : `${allows}, or ask your admin to upgrade the plan.`;
+}
+
 /**
- * Returns { allowed, limit, current, plan, reason }.
- * Counts projects created by this admin.
+ * Projects that count against the plan: those this user created that are not
+ * COMPLETED. The limit is on projects running at a time, so finishing one
+ * frees a slot without deleting its history.
  */
-async function canCreateProject(companyAdminId) {
-  const subscription = await prisma.subscription.findUnique({
-    where: { companyAdminId },
-  });
+function countOpenProjects(userId) {
+  return prisma.project.count({ where: { createdById: userId, status: { not: 'COMPLETED' } } });
+}
 
-  const current = await prisma.project.count({ where: { createdById: companyAdminId } });
+/**
+ * Returns { allowed, limit, current, plan, reason, message }.
+ * `current` is the user's open (not COMPLETED) projects.
+ *
+ * `user` is { userId, role }; a bare id string is treated as an ADMIN, which
+ * is what older callers passed.
+ */
+async function canCreateProject(user) {
+  const { userId, role } = typeof user === 'string' ? { userId: user, role: 'ADMIN' } : user;
+  const current = await countOpenProjects(userId);
 
-  if (!subscription || subscription.status !== 'ACTIVE') {
-    return {
-      allowed: current < FREE_TIER_LIMIT,
-      limit: FREE_TIER_LIMIT,
-      current,
-      plan: subscription ? `${subscription.plan} (${subscription.status})` : 'NONE',
-      reason: subscription ? 'Subscription is not active' : 'No active subscription',
-    };
+  let subscription;
+  let fallbackLimit;
+  if (role === 'ENGINEER') {
+    subscription = await prisma.subscription.findFirst({
+      where: { status: 'ACTIVE', companyAdmin: { role: 'ADMIN' } },
+      orderBy: { startDate: 'desc' },
+    });
+    fallbackLimit = ENGINEER_DEFAULT_LIMIT;
+  } else {
+    subscription = await prisma.subscription.findUnique({ where: { companyAdminId: userId } });
+    fallbackLimit = FREE_TIER_LIMIT;
   }
 
-  const limit = PLAN_LIMITS[subscription.plan] ?? FREE_TIER_LIMIT;
+  const active = subscription && subscription.status === 'ACTIVE';
+  const limit = active ? PLAN_LIMITS[subscription.plan] ?? fallbackLimit : fallbackLimit;
+  const allowed = current < limit;
+
+  let reason = null;
+  if (!allowed) {
+    if (active) reason = `Plan ${subscription.plan} allows ${limit} projects`;
+    else reason = subscription ? 'Subscription is not active' : 'No active subscription';
+  }
 
   return {
-    allowed: current < limit,
+    allowed,
     limit,
     current,
-    plan: subscription.plan,
-    reason: current < limit ? null : `Plan ${subscription.plan} allows ${limit} projects`,
+    plan: active ? subscription.plan : subscription ? `${subscription.plan} (${subscription.status})` : 'NONE',
+    reason,
+    message: allowed ? null : upgradeMessage(role, limit),
   };
 }
 
@@ -49,11 +82,12 @@ async function canCreateProject(companyAdminId) {
  */
 async function enforceProjectLimit(req, res, next) {
   try {
-    const check = await canCreateProject(req.user.userId);
+    const check = await canCreateProject(req.user);
 
     if (!check.allowed) {
       return res.status(402).json({
         error: 'Project limit reached for current plan',
+        message: check.message,
         plan: check.plan,
         limit: check.limit === Infinity ? 'unlimited' : check.limit,
         current: check.current,
@@ -68,4 +102,4 @@ async function enforceProjectLimit(req, res, next) {
   }
 }
 
-module.exports = { canCreateProject, enforceProjectLimit, PLAN_LIMITS, FREE_TIER_LIMIT };
+module.exports = { canCreateProject, countOpenProjects, enforceProjectLimit, PLAN_LIMITS, FREE_TIER_LIMIT, ENGINEER_DEFAULT_LIMIT };

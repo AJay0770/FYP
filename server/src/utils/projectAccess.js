@@ -21,4 +21,16 @@ async function userHasProjectAccess(projectId, user) {
   return project.clientId === user.userId;
 }
 
-module.exports = { isEngineerAssigned, userHasProjectAccess };
+// Clients an engineer is related to: the clients of projects they are assigned
+// to. An engineer may see and pick only these - never the company's whole
+// client list.
+async function clientIdsForEngineer(engineerId) {
+  const projects = await prisma.project.findMany({
+    where: { engineers: { some: { engineerId } } },
+    select: { clientId: true },
+    distinct: ['clientId'],
+  });
+  return projects.map((p) => p.clientId);
+}
+
+module.exports = { isEngineerAssigned, userHasProjectAccess, clientIdsForEngineer };

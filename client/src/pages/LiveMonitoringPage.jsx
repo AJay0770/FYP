@@ -1,14 +1,58 @@
 import { useCallback, useEffect, useRef, useState, useContext } from 'react'
 import api from '../api/axios'
 import { AuthContext } from '../context/AuthContext'
-import { Badge, Button, Card, Input, Modal, statusVariant } from '../components/ui'
-import useCameraDevice, { holderLabel } from '../components/useCameraDevice'
+import { Badge, Button, Card, EmptyState, Input, Modal, Select, Skeleton, statusVariant } from '../components/ui'
+import useCameraDevice, { deviceLabel, deviceNoun, holderLabel, sourceHint } from '../components/useCameraDevice'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 
 // OpenCV device index of the machine running the AI service - "0" is the
 // laptop's built-in webcam. See utils/cameraSource.js server-side.
 const LAPTOP_WEBCAM_SOURCE = '0'
+
+const ZONE_OPTIONS = [
+  { value: 'WORK_AREA', label: 'Work area' },
+  { value: 'ENTRANCE', label: 'Entrance' },
+  { value: 'STORAGE', label: 'Storage' },
+]
+const EMPTY_CAMERA = { name: '', zone: 'WORK_AREA', source: LAPTOP_WEBCAM_SOURCE }
+
+/** Inline form for adding a camera to an existing project. */
+function AddCameraForm({ projectId, onAdded, onCancel }) {
+  const [form, setForm] = useState(EMPTY_CAMERA)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const res = await api.post(`/projects/${projectId}/cameras`, {
+        name: form.name.trim(),
+        zone: form.zone,
+        rtspUrl: form.source.trim() || LAPTOP_WEBCAM_SOURCE,
+      })
+      onAdded(res.data)
+    } catch (err) {
+      setError(err.response?.data?.error || 'Could not add the camera')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form className="add-camera" onSubmit={submit}>
+      <Input label="Camera name" required value={form.name} onChange={set('name')} placeholder="e.g. North Side" maxLength={80} disabled={saving} />
+      <Select label="Zone" value={form.zone} options={ZONE_OPTIONS} onChange={set('zone')} disabled={saving} />
+      <Input label="Source" value={form.source} onChange={set('source')} hint={sourceHint(form.source)} disabled={saving} error={error} />
+      <div className="add-camera__actions">
+        <Button type="submit" icon="plus" loading={saving} disabled={!form.name.trim()}>Add camera</Button>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>Cancel</Button>
+      </div>
+    </form>
+  )
+}
 
 /**
  * An MJPEG <img> that closes its connection on unmount. Chrome keeps loading
@@ -47,6 +91,9 @@ function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
 
   const zoneLabel = cam.zone.replace('_', ' ')
   const deviceState = device.status?.state
+  // "webcam" for device 0 (the laptop's own), "USB camera" for plugged-in ones.
+  const noun = deviceNoun(cam.rtspUrl)
+  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1)
   const canControl = Boolean(device.status?.canControl)
   // A webcam camera streams only while the webcam is assigned to it.
   const showStream = device.local ? deviceState === 'here' && !streamFailed : !streamStopped && !streamFailed
@@ -89,13 +136,13 @@ function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
   let placeholder = null
   if (device.local) {
     if (!device.status) {
-      placeholder = device.error ? `Webcam status unavailable — ${device.error}` : 'Checking the webcam…'
+      placeholder = device.error ? `${Noun} status unavailable — ${device.error}` : `Checking the ${noun}…`
     } else if (deviceState === 'free') {
-      placeholder = 'The laptop webcam is free. Choose "Use webcam here" to show it on this camera.'
+      placeholder = `The ${deviceLabel(cam.rtspUrl)} is free. Choose "Use ${noun} here" to show it on this camera.`
     } else if (deviceState === 'elsewhere') {
-      placeholder = `The laptop webcam is in use by ${holderLabel(device.status)}.`
+      placeholder = `The ${deviceLabel(cam.rtspUrl)} is in use by ${holderLabel(device.status)}.`
     } else if (streamFailed) {
-      placeholder = 'Stream unavailable — the webcam could not be opened.'
+      placeholder = `Stream unavailable — the ${noun} could not be opened.`
     }
   } else if (streamStopped) {
     placeholder = 'Feed paused.'
@@ -110,18 +157,19 @@ function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
           <strong>{cam.name}</strong>
           <div className="ds-caption">
             {zoneLabel}
-            {device.local && ' · laptop webcam'}
+            {device.local && ` · ${deviceLabel(cam.rtspUrl)}`}
           </div>
         </div>
         {device.local && deviceState ? (
           <Badge variant={deviceState === 'here' ? 'success' : deviceState === 'free' ? 'neutral' : 'warning'} dot>
-            {deviceState === 'here' ? 'Webcam in use here' : deviceState === 'free' ? 'Webcam free' : 'Webcam elsewhere'}
+            {deviceState === 'here' ? `${Noun} in use here` : deviceState === 'free' ? `${Noun} free` : `${Noun} elsewhere`}
           </Badge>
         ) : (
           <Badge variant={statusVariant(cam.status)} dot>{cam.status}</Badge>
         )}
       </div>
 
+      {/* ▼ EDIT: the video box of each camera tile and its "webcam free / in use" messages */}
       <div className="camera-tile__frame">
         {showStream ? (
           /*
@@ -148,12 +196,12 @@ function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
             <>
               {deviceState === 'free' && (
                 <Button size="sm" onClick={() => changeDevice('assign')} disabled={device.busy}>
-                  Use webcam here
+                  Use {noun} here
                 </Button>
               )}
               {deviceState === 'elsewhere' && (
                 <Button size="sm" onClick={() => setConfirmMove(true)} disabled={device.busy}>
-                  Move webcam here
+                  Move {noun} here
                 </Button>
               )}
               {deviceState === 'here' && streamFailed && (
@@ -161,7 +209,7 @@ function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
               )}
               {deviceState === 'here' && (
                 <Button size="sm" variant="secondary" onClick={() => changeDevice('release')} disabled={device.busy}>
-                  Release webcam
+                  Release {noun}
                 </Button>
               )}
             </>
@@ -198,7 +246,7 @@ function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
 
       {device.local && device.status && !canControl && (
         <p className="ds-caption" style={{ marginTop: 'var(--space-xs)' }}>
-          Only an admin or an engineer on this project can move the webcam.
+          Only an admin or an engineer on this project can move the {noun}.
         </p>
       )}
       {device.local && device.error && device.status && (
@@ -217,7 +265,7 @@ function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
             label={`Source for ${cam.name}`}
             value={edit.value}
             onChange={(e) => setEdit((prev) => ({ ...prev, value: e.target.value }))}
-            hint="Paste 0 for the laptop webcam, or an rtsp:// / http:// camera URL."
+            hint="0 = laptop webcam, 1 = first USB camera (2, 3… for more), or an rtsp:// / http:// camera URL."
             error={edit.error}
             disabled={edit.saving}
           />
@@ -237,7 +285,7 @@ function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
 
       <Modal
         open={confirmMove}
-        title="Move the webcam?"
+        title={`Move the ${noun}?`}
         onClose={() => setConfirmMove(false)}
         footer={
           <>
@@ -248,13 +296,13 @@ function CameraTile({ cam, projectId, token, canEditSource, onCameraUpdated }) {
                 await changeDevice('move')
               }}
             >
-              Move webcam here
+              Move {noun} here
             </Button>
           </>
         }
       >
         <p>
-          The laptop webcam is currently used by <strong>{holderLabel(device.status)}</strong>. Moving it
+          The {deviceLabel(cam.rtspUrl)} is currently used by <strong>{holderLabel(device.status)}</strong>. Moving it
           here stops that feed and its safety detection.
         </p>
       </Modal>
@@ -288,6 +336,15 @@ export default function LiveMonitoringPage({ projectId, onCameraUpdated }) {
     if (projectId) fetchCameras()
   }, [projectId])
 
+  const [adding, setAdding] = useState(false)
+
+  const handleCameraAdded = (camera) => {
+    setCameras((prev) => [camera, ...prev])
+    setAdding(false)
+    // Lets the safety-detection panel pick the new camera up too.
+    onCameraUpdated?.(camera)
+  }
+
   const handleCameraUpdated = (updated, change = {}) => {
     if (!change.deviceChanged) {
       setCameras((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
@@ -298,12 +355,26 @@ export default function LiveMonitoringPage({ projectId, onCameraUpdated }) {
   return (
     <Card
       title="Live monitoring"
+      icon="cctv"
       subtitle={cameras.length ? `${cameras.length} camera(s)` : undefined}
+      actions={
+        canEditSource && !adding ? (
+          <Button size="sm" variant="secondary" icon="plus" onClick={() => setAdding(true)}>Add camera</Button>
+        ) : null
+      }
     >
-      {loading && <p className="ds-muted">Loading cameras…</p>}
+      {adding && <AddCameraForm projectId={projectId} onAdded={handleCameraAdded} onCancel={() => setAdding(false)} />}
+      {/* ▼ EDIT: camera tiles grid. Tile size/columns: App.css "Camera grid" */}
+      {loading && <div className="camera-grid"><Skeleton height={220} radius={16} /><Skeleton height={220} radius={16} /></div>}
       {!loading && error && <p className="ds-field__error" role="alert">{error}</p>}
-      {!loading && !error && cameras.length === 0 && (
-        <p className="ds-muted">No cameras registered for this project.</p>
+      {!loading && !error && cameras.length === 0 && !adding && (
+        <EmptyState
+          compact
+          icon="cctv"
+          title="No cameras yet"
+          message={canEditSource ? 'Add a camera to start live monitoring and safety detection.' : 'Cameras added to this project will appear here.'}
+          action={canEditSource ? <Button size="sm" icon="plus" onClick={() => setAdding(true)}>Add camera</Button> : null}
+        />
       )}
 
       {!loading && cameras.length > 0 && (

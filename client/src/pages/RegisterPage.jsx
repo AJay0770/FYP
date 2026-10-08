@@ -1,6 +1,7 @@
 import { useState, useContext } from 'react'
 import { AuthContext } from '../context/AuthContext'
 import { Button, Card, Input } from '../components/ui'
+import { PASSWORD_HINT, isPasswordValid, passwordProblem } from '../utils/password'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
@@ -25,6 +26,7 @@ export default function RegisterPage() {
     }
   }
 
+  // ▼ EDIT: the "Create an account" card: title, subtitle, fields and button text below
   return (
     <Card title="Create an account" subtitle="New accounts start with the CLIENT role">
       <form onSubmit={handleSubmit} noValidate>
@@ -56,9 +58,11 @@ export default function RegisterPage() {
           placeholder="••••••••"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          hint={PASSWORD_HINT}
+          error={passwordProblem(password)}
           required
         />
-        <Button type="submit" variant="secondary" disabled={loading} fullWidth>
+        <Button type="submit" variant="secondary" disabled={loading || !isPasswordValid(password)} fullWidth>
           {loading ? 'Creating account…' : 'Create account'}
         </Button>
       </form>

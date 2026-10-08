@@ -54,10 +54,16 @@ Accounts (all password `password123`):
 ## 2. Projects and role scoping
 
 8. **Expect:** the project table lists *both* Riverside Tower and Lakeside Villas, and a "Create Project" button is visible.
-9. Log out, log in as `engineer1@test.com`. **Expect:** only **Riverside Tower**, and **no** "Create Project" button.
+9. Log out, log in as `engineer1@test.com`. **Expect:** only **Riverside Tower**, and a "New project" button (engineers can create projects within the plan's limit).
 10. Log out, log in as `client2@test.com`. **Expect:** only **Lakeside Villas**.
 11. Log back in as `admin@test.com` and click **Riverside Tower**. **Expect:** the detail page with sections Updates, Materials, Chat, Live Monitoring, Alerts, Attendance, Analytics, Reports.
 12. Click "Back to Projects". **Expect:** the list again.
+12a. As admin, click **New project**, fill in the details and pick a client. In **Engineers**, choose **New engineer** and enter a name, email and password (e.g. `Engineer2026`). **Expect:** "Create project" stays disabled until the password has 8+ characters and a number; after creating, the project page lists the new engineer. Log in as that engineer. **Expect:** they see the project.
+12b. Create another project as admin, this time with **Existing engineer** and `engineer1` ticked. **Expect:** engineer1 sees it in their list.
+12c. On a project page as admin or an assigned engineer, click **Edit**, change the name, address, dates and budget, then save. **Expect:** the header updates at once and the change survives a reload. A completion date before the start date shows an error and Save stays disabled.
+12d. As admin, on the project from 12b use **Remove engineer…** to take engineer1 off, and confirm. **Expect:** engineer1's avatar disappears; logged in as engineer1, the project is no longer listed. Assign them back with **Assign engineer…**.
+12e. Log in as `engineer1@test.com` and open a project. **Expect:** an Edit button but **no** Delete button. Note the "x of y open projects" count on the New project page, set a project's status to **Completed**, and check again. **Expect:** the count dropped by one. Set it back to Active (allowed while under the limit; over the limit it is refused with an upgrade message).
+12f. As admin, click **Delete** on the project from 12b, then **Delete project**. **Expect:** back on the list, and the project is gone for admin and engineer1. Log in as a client. **Expect:** no Edit or Delete buttons.
 
 ## 3. Site updates
 

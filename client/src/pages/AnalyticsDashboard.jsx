@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import api from '../api/axios'
 import { Card } from '../components/ui'
+// ▼ EDIT: chart colours come from styles/designSystem.js (chartColors / chartTheme)
 import { chartColors, chartTheme, typography } from '../styles/designSystem'
 
 // Shared axis/tooltip styling so every chart reads as part of one system.
@@ -105,6 +106,7 @@ export default function AnalyticsDashboard({ projectId }) {
        * both charts until their labels collide.
        */}
       <div className="chart-grid">
+        {/* ▼ EDIT: violations bar chart (title, bar colour via fill=, height in the wrapper div) */}
         <Card title="Safety violations by type">
           {violationData.length === 0 ? (
             <p className="ds-muted">No violations in this period.</p>
@@ -122,6 +124,7 @@ export default function AnalyticsDashboard({ projectId }) {
           )}
         </Card>
 
+        {/* ▼ EDIT: attendance line chart */}
         <Card title="Attendance (last 30 days)">
           {attendanceData.length === 0 ? (
             <p className="ds-muted">No attendance records in this period.</p>
@@ -147,6 +150,7 @@ export default function AnalyticsDashboard({ projectId }) {
         </Card>
       </div>
 
+      {/* ▼ EDIT: materials bar chart (received vs consumed colours) */}
       <Card title="Materials: received vs consumed">
         {materialData.length === 0 ? (
           <p className="ds-muted">No material entries in this period.</p>

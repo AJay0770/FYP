@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useContext } from 'react'
 import api from '../api/axios'
-import socket, { connectSocket } from '../api/socket'
+import socket, { joinProjectRoom } from '../api/socket'
 import { AuthContext } from '../context/AuthContext'
 import { Badge, Button, Card, Input, Modal, Table, statusVariant } from './ui'
 
@@ -38,15 +38,18 @@ export default function ChatPanel({ projectId, token }) {
   useEffect(() => {
     if (!token || !projectId) return
 
-    const s = connectSocket(token)
-    const handleMessage = (message) => setMessages((prev) => [...prev, message])
+    const { socket: s, stopRejoining } = joinProjectRoom(token, projectId)
+    // The socket may still be in rooms of projects opened earlier.
+    const handleMessage = (message) => {
+      if (message.projectId === projectId) setMessages((prev) => [...prev, message])
+    }
     const handleError = (err) => setError(err?.message || 'Socket error')
 
-    s.emit('project:join', { projectId })
     s.on('chat:message', handleMessage)
     s.on('error', handleError)
 
     return () => {
+      stopRejoining()
       s.off('chat:message', handleMessage)
       s.off('error', handleError)
     }
@@ -111,6 +114,7 @@ export default function ChatPanel({ projectId, token }) {
         <>
           {/* aria-live so newly arriving messages are announced to screen readers
               without the user needing to poll the region manually. */}
+          {/* ▼ EDIT: chat message list (bubble look: App.css "Chat") */}
           <div ref={logRef} className="chat-log" role="log" aria-live="polite" aria-label="Chat messages">
             {messages.length === 0 && <p className="ds-muted">No messages yet. Say something.</p>}
             {messages.map((m) => {
@@ -154,6 +158,7 @@ export default function ChatPanel({ projectId, token }) {
             </div>
           )}
 
+          {/* ▼ EDIT: chat input box and Send / Attach buttons */}
           <form className="chat-form" onSubmit={handleSend}>
             <Input
               label="Message"

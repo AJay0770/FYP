@@ -211,6 +211,7 @@ export default function MaterialsPanel({ projectId }) {
       {!loading && !error && (
         <>
           <h4>Summary</h4>
+          {/* ▼ EDIT: materials summary table - columns in "const summaryColumns" above */}
           <Table columns={summaryColumns} rows={summary} empty="No material entries" hover={false} />
 
           <h4 style={{ marginTop: 'var(--space-lg)' }}>Entries</h4>

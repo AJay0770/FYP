@@ -18,6 +18,7 @@ export default function LoginPage() {
     }
   }
 
+  // ▼ EDIT: the "Log in" card: title, fields and button text below
   return (
     <Card title="Log in">
       <form onSubmit={handleSubmit} noValidate>

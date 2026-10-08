@@ -17,6 +17,23 @@ export function connectSocket(token) {
   return socket
 }
 
+/**
+ * Join a project's room, and join it again after every reconnect: rooms are
+ * server-side state, so a dropped connection (server restart, network blip)
+ * would otherwise silently stop all realtime updates. Returns the socket and
+ * a cleanup function for the effect.
+ *
+ * The shared socket stays in every room it has joined, so listeners still
+ * receive other projects' events - check the payload's projectId.
+ */
+export function joinProjectRoom(token, projectId) {
+  const s = connectSocket(token)
+  const join = () => s.emit('project:join', { projectId })
+  join()
+  s.on('connect', join)
+  return { socket: s, stopRejoining: () => s.off('connect', join) }
+}
+
 export function disconnectSocket() {
   if (socket.connected) {
     socket.disconnect()

@@ -28,8 +28,8 @@
 | Create Projects | ✅ Complete | `POST /api/projects` (ADMIN only) |
 | List Projects (Role-Scoped) | ✅ Complete | `GET /api/projects` with role filtering in Prisma |
 | View Project Details | ✅ Complete | `GET /api/projects/:id` with role scoping |
-| Update Projects | ✅ Complete | `PUT /api/projects/:id` (ADMIN only) |
-| Delete Projects | ✅ Complete | `DELETE /api/projects/:id` (ADMIN only) |
+| Update Projects | ✅ Complete | `PUT /api/projects/:id` (ADMIN or assigned ENGINEER) + edit form on the project page |
+| Delete Projects | ✅ Complete | `DELETE /api/projects/:id` (ADMIN only) + delete button on the project page; engineers mark projects COMPLETED, which frees a plan slot |
 | Assign Engineers | ✅ Complete | `POST /api/projects/:id/assign-engineer` |
 | Project Status Tracking | ✅ Complete | PLANNING, ACTIVE, ON_HOLD, COMPLETED statuses |
 | GPS Location Storage | ✅ Complete | gpsLat, gpsLng fields in schema |

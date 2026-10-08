@@ -1,8 +1,9 @@
 import { useEffect, useState, useContext } from 'react'
 import api from '../api/axios'
-import { connectSocket } from '../api/socket'
+import { joinProjectRoom } from '../api/socket'
 import { AuthContext } from '../context/AuthContext'
 import { Badge, Button, Card, Input, Row, Table, ToastRegion, useToasts } from '../components/ui'
+import AttendanceScan from '../components/AttendanceScan'
 
 const RANGES = ['daily', 'weekly', 'monthly']
 
@@ -70,11 +71,16 @@ export default function AttendancePage({ projectId }) {
 
   useEffect(() => {
     if (!token || !projectId) return
-    const s = connectSocket(token)
-    const handleCheckin = () => loadAttendance(range)
-    s.emit('project:join', { projectId })
+    const { socket: s, stopRejoining } = joinProjectRoom(token, projectId)
+    // The socket may still be in rooms of projects opened earlier.
+    const handleCheckin = (record) => {
+      if (record?.projectId === projectId) loadAttendance(range)
+    }
     s.on('attendance:checkin', handleCheckin)
-    return () => s.off('attendance:checkin', handleCheckin)
+    return () => {
+      stopRejoining()
+      s.off('attendance:checkin', handleCheckin)
+    }
   }, [projectId, token, range])
 
   const handleEnroll = async (e) => {
@@ -91,7 +97,7 @@ export default function AttendancePage({ projectId }) {
       setPhotos([])
       await loadWorkers()
     } catch (err) {
-      setEnrollError(err.response?.data?.error || 'Enrolment failed')
+      setEnrollError(err.response?.data?.error || 'Enrollment failed')
     } finally {
       setEnrolling(false)
     }
@@ -177,13 +183,18 @@ export default function AttendancePage({ projectId }) {
       {loading && <p className="ds-muted">Loading attendance…</p>}
       {!loading && error && <p className="ds-field__error" role="alert">{error}</p>}
 
+      {/* ▼ EDIT: attendance table - columns are in "const columns" above */}
       {!loading && !error && summary && (
         <Table columns={columns} rows={summary.workers} empty="No check-ins in this period" hover={false} />
       )}
 
+      {/* ▼ EDIT: the Detect & mark attendance box lives in components/AttendanceScan.jsx */}
+      {canEnroll && <AttendanceScan projectId={projectId} onDone={() => loadAttendance(range)} />}
+
       {canEnroll && (
         <details style={{ marginTop: 'var(--space-lg)' }}>
-          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Enrol a worker</summary>
+          {/* ▼ EDIT: the "Enroll a worker" section title and form below */}
+          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Enroll a worker</summary>
           <form onSubmit={handleEnroll} style={{ marginTop: 'var(--space-md)', maxWidth: 460 }}>
             {enrollError && <p className="ds-field__error" role="alert">{enrollError}</p>}
             {enrollSuccess && <p className="ds-field__hint" role="status">{enrollSuccess}</p>}
@@ -210,7 +221,7 @@ export default function AttendancePage({ projectId }) {
             />
             <p className="ds-caption">{photos.length} photo(s) selected</p>
             <Button type="submit" disabled={enrolling || photos.length === 0}>
-              {enrolling ? 'Enrolling…' : 'Enrol worker'}
+              {enrolling ? 'Enrolling…' : 'Enroll worker'}
             </Button>
           </form>
 

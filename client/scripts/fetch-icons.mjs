@@ -28,6 +28,7 @@ const ICONS = {
   'users': 'workers',
   'user-check': 'attendance check-in',
   'user-plus': 'enrol worker',
+  'user-minus': 'remove engineer from project',
   'package': 'materials',
   'message-square': 'chat',
   'send': 'send message',

@@ -17,8 +17,9 @@ router.get('/', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    const limit = Math.min(Number(req.query.limit) || DEFAULT_LIMIT, MAX_LIMIT);
-    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    // Clamp both ways: a negative `take` makes Prisma read from the end.
+    const limit = Math.max(1, Math.min(Math.trunc(Number(req.query.limit)) || DEFAULT_LIMIT, MAX_LIMIT));
+    const offset = Math.max(Math.trunc(Number(req.query.offset)) || 0, 0);
 
     const [alerts, total] = await Promise.all([
       prisma.safetyAlert.findMany({

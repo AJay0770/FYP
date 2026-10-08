@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext } from 'react'
 import api from '../api/axios'
-import { connectSocket } from '../api/socket'
+import { joinProjectRoom } from '../api/socket'
 import { AuthContext } from '../context/AuthContext'
 import { Badge, Card, Table, ToastRegion, useToasts, statusVariant } from './ui'
 
@@ -32,8 +32,10 @@ export default function SafetyAlertsPanel({ projectId }) {
   useEffect(() => {
     if (!token || !projectId) return
 
-    const s = connectSocket(token)
+    const { socket: s, stopRejoining } = joinProjectRoom(token, projectId)
     const handleAlert = (alert) => {
+      // The socket may still be in rooms of projects opened earlier.
+      if (alert.projectId !== projectId) return
       setAlerts((prev) => [alert, ...prev])
       setTotal((prev) => prev + 1)
       push({
@@ -43,9 +45,11 @@ export default function SafetyAlertsPanel({ projectId }) {
       })
     }
 
-    s.emit('project:join', { projectId })
     s.on('safety:alert', handleAlert)
-    return () => s.off('safety:alert', handleAlert)
+    return () => {
+      stopRejoining()
+      s.off('safety:alert', handleAlert)
+    }
   }, [projectId, token, push])
 
   const columns = [
@@ -110,6 +114,7 @@ export default function SafetyAlertsPanel({ projectId }) {
         {!loading && error && (
           <p className="ds-field__error" role="alert" style={{ padding: 'var(--space-lg)' }}>{error}</p>
         )}
+        {/* ▼ EDIT: safety alerts table - columns in "const columns" above */}
         {!loading && !error && (
           <Table columns={columns} rows={alerts} empty="No safety alerts recorded" hover={false} />
         )}

@@ -1,10 +1,10 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import api from '../api/axios'
-import { connectSocket } from '../api/socket'
+import { joinProjectRoom } from '../api/socket'
 import { AuthContext } from '../context/AuthContext'
 import { Badge, Button, Card, Select, Table, ToastRegion, useToasts, statusVariant } from '../components/ui'
-import useCameraDevice, { holderLabel } from '../components/useCameraDevice'
+import useCameraDevice, { deviceLabel, deviceNoun, holderLabel } from '../components/useCameraDevice'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 
@@ -12,11 +12,14 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api
 // legend here and the boxes burned into the stream cannot drift apart. The
 // trained model (ai-service/TRAINING.md) has 3 classes, not the originally
 // planned 4 - `head` is a bare head with no helmet, i.e. it IS the NO_HELMET
-// violation signal, not a separate "no PPE" concept. There is no negative
-// class for vests yet (would need person-detection + containment logic).
+// violation signal, not a separate "no PPE" concept.
+//
+// Vests are deliberately absent: the model can see a vest but has no "missing
+// vest" class, so no real vest check exists. The detection service hides the
+// vest class (HIDDEN_CLASSES) and nothing here shows it, so the site never
+// implies a vest check it can't do.
 const CLASSES = [
   { key: 'helmet', label: 'Helmet', color: 'var(--color-success-600, #2e7d32)', hazard: false },
-  { key: 'vest', label: 'Vest', color: 'var(--color-success-600, #2e7d32)', hazard: false },
   { key: 'head', label: 'No Helmet', color: 'var(--color-danger-600, #f44336)', hazard: true },
 ]
 
@@ -24,7 +27,7 @@ const BOX_SAFE = '#4caf50'
 const BOX_HAZARD = '#f44336'
 const POLL_INTERVAL_MS = 2000
 
-const EMPTY_COUNTS = { helmet: 0, vest: 0, head: 0 }
+const EMPTY_COUNTS = { helmet: 0, head: 0 }
 
 function boxColor(detection) {
   return detection.hazard ? BOX_HAZARD : BOX_SAFE
@@ -151,7 +154,7 @@ export default function LiveMonitoring({ projectId }) {
 
   useEffect(() => {
     if (!token || !projectId) return
-    const socket = connectSocket(token)
+    const { socket, stopRejoining } = joinProjectRoom(token, projectId)
 
     const handleDetections = (payload) => {
       if (payload.cameraId !== cameraId) return
@@ -159,6 +162,8 @@ export default function LiveMonitoring({ projectId }) {
     }
 
     const handleAlert = (alert) => {
+      // The socket may still be in rooms of projects opened earlier.
+      if (alert.projectId !== projectId) return
       setAlerts((prev) => [alert, ...prev].slice(0, 10))
       push({
         variant: 'danger',
@@ -167,11 +172,11 @@ export default function LiveMonitoring({ projectId }) {
       })
     }
 
-    socket.emit('project:join', { projectId })
     socket.on('safety:detections', handleDetections)
     socket.on('safety:alert', handleAlert)
 
     return () => {
+      stopRejoining()
       socket.off('safety:detections', handleDetections)
       socket.off('safety:alert', handleAlert)
     }
@@ -293,14 +298,15 @@ export default function LiveMonitoring({ projectId }) {
               </Button>
             </div>
 
+            {/* ▼ EDIT: Live safety monitoring video box (styles: App.css ".safety-stream") */}
             <div className="safety-stream">
               {webcamNotHere ? (
                 <p className="camera-tile__placeholder">
                   {!device.status
-                    ? 'Checking the webcam…'
+                    ? `Checking the ${deviceNoun(camera?.rtspUrl)}…`
                     : device.status.state === 'free'
-                      ? 'The laptop webcam is not assigned to this camera. Use "Use webcam here" in Live monitoring above to start detection on it.'
-                      : `The laptop webcam is in use by ${holderLabel(device.status)}.`}
+                      ? `The ${deviceLabel(camera?.rtspUrl)} is not assigned to this camera. Use "Use ${deviceNoun(camera?.rtspUrl)} here" in Live monitoring above to start detection on it.`
+                      : `The ${deviceLabel(camera?.rtspUrl)} is in use by ${holderLabel(device.status)}.`}
                 </p>
               ) : !streamOn ? (
                 <p className="camera-tile__placeholder">Stream paused.</p>
@@ -339,6 +345,7 @@ export default function LiveMonitoring({ projectId }) {
               </p>
             )}
 
+            {/* ▼ EDIT: Helmet / No Helmet count tiles (labels come from const CLASSES at the top of this file) */}
             <div className="safety-stats">
               {CLASSES.map((cls) => (
                 <div

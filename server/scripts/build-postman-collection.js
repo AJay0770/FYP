@@ -30,7 +30,8 @@ function test(name, method, url, opts = {}) {
 
   const assertions = [
     `pm.test("${name.replace(/"/g, "'")} -> ${expect}", function () {`,
-    `  pm.response.to.have.status(${expect});`,
+    // A list means any of these is correct (e.g. created, or suppressed by a cooldown).
+    Array.isArray(expect) ? `  pm.expect(${JSON.stringify(expect)}).to.include(pm.response.code);` : `  pm.response.to.have.status(${expect});`,
     '});',
     ...extra,
   ];
@@ -98,6 +99,8 @@ folders.push({
     test('Refresh without cookie', 'POST', '/auth/refresh', { expect: 401 }),
     test('Register new user', 'POST', '/auth/register',
       { body: { name: 'Postman User', email: 'postman-{{$timestamp}}@test.com', password: 'password123' }, expect: 201, extra: NO_LEAK }),
+    test('Register password too short', 'POST', '/auth/register', { body: { name: 'N', email: 'short-{{$timestamp}}@test.com', password: 'abc1' }, expect: 400 }),
+    test('Register password without a number', 'POST', '/auth/register', { body: { name: 'N', email: 'nonum-{{$timestamp}}@test.com', password: 'nonumbershere' }, expect: 400 }),
     test('Register missing fields', 'POST', '/auth/register', { body: { email: 'x@y.com' }, expect: 400 }),
     test('Register duplicate email', 'POST', '/auth/register',
       { body: { name: 'Dup', email: 'admin@test.com', password: 'password123' }, expect: 409 }),
@@ -134,17 +137,117 @@ READ_SCOPE.forEach(([tok, code, label]) => {
 });
 projectItems.push(
   test('Get nonexistent project', 'GET', '/projects/00000000-0000-4000-8000-999999999999', { auth: 'adminToken', expect: 404 }),
-  test('Create project as ENGINEER', 'POST', '/projects', { auth: 'engineer1Token', body: { name: 'X' }, expect: 403 }),
+  // Engineer project creation. engineer1 is assigned to project1, whose client is client1.
+  test('Project quota as ENGINEER', 'GET', '/projects/quota', { auth: 'engineer1Token', expect: 200,
+    extra: ['pm.test("reports usage", function () { const q = pm.response.json(); pm.expect(q.current).to.be.a("number"); pm.expect(q.allowed).to.be.a("boolean"); });'] }),
+  test('Project quota as CLIENT', 'GET', '/projects/quota', { auth: 'client1Token', expect: 403 }),
+  test('List clients as ENGINEER (own projects only)', 'GET', '/users/clients', { auth: 'engineer1Token', expect: 200,
+    extra: [...NO_LEAK, `pm.test("only clients of engineer1's projects", function () { const ids = pm.response.json().map(function (c) { return c.id; }); pm.expect(ids).to.include(pm.variables.get("client1")); pm.expect(ids).to.not.include(pm.variables.get("client2")); });`] }),
+  test('List clients as ADMIN', 'GET', '/users/clients', { auth: 'adminToken', expect: 200, extra: NO_LEAK }),
+  test('List clients as CLIENT', 'GET', '/users/clients', { auth: 'client1Token', expect: 403 }),
+  test('List clients unauthenticated', 'GET', '/users/clients', { expect: 401 }),
+  test('Create project as ENGINEER (existing client, 2 cameras)', 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'Engineer Project', address: '12 Canal Road, Lahore', startDate: '2026-10-01', expectedCompletionDate: '2027-06-30', budgetEstimate: 2500000,
+      clientId: V('client1'), cameras: [{ name: 'North Side' }, { name: 'West Side', zone: 'ENTRANCE' }] },
+    expect: 201,
+    extra: [...NO_LEAK, 'pm.test("cameras created on the webcam, engineer assigned, no GPS needed", function () { const p = pm.response.json(); pm.expect(p.cameras.length).to.equal(2); pm.expect(p.cameras[0].rtspUrl).to.equal("0"); pm.expect(p.engineers.map(function (e) { return e.engineerId; })).to.include(pm.variables.get("engineer1")); pm.expect(p.gpsLat).to.equal(null); });',
+      'pm.environment.set("engineerProject", pm.response.json().id);'] }),
+  test('Create project as ADMIN with a new engineer', 'POST', '/projects', { auth: 'adminToken',
+    body: { name: 'Admin Project', address: 'Main Boulevard, Gulberg', startDate: '2026-10-01', expectedCompletionDate: '2027-02-28', budgetEstimate: 500000,
+      clientId: V('client1'), engineerIds: [V('engineer2')], newEngineer: { name: 'Site Engineer', email: 'site.{{$timestamp}}@example.com', password: 'Engineer#2026', role: 'ADMIN' } },
+    expect: 201,
+    extra: [...NO_LEAK, 'pm.test("new engineer created as ENGINEER and assigned with the existing one", function () { const p = pm.response.json(); pm.expect(p.engineers.length).to.equal(2); const emails = p.engineers.map(function (e) { return e.engineer.email; }); pm.expect(emails.join(",")).to.include("site."); pm.expect(pm.response.text()).to.not.include("Engineer#2026"); });',
+      'pm.environment.set("adminProject", pm.response.json().id);'] }),
+  test('Create project new engineer as ENGINEER (admin only)', 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, clientId: V('client1'), newEngineer: { name: 'N', email: 'neweng.{{$timestamp}}@example.com', password: 'LongEnough1' } }, expect: 403 }),
+  test('Create project new engineer duplicate email', 'POST', '/projects', { auth: 'adminToken',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, clientId: V('client1'), newEngineer: { name: 'N', email: 'engineer1@test.com', password: 'LongEnough1' } }, expect: 409 }),
+  test('Create project new engineer weak password', 'POST', '/projects', { auth: 'adminToken',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, clientId: V('client1'), newEngineer: { name: 'N', email: 'weakeng.{{$timestamp}}@example.com', password: 'short' } }, expect: 400 }),
+  test('Create project new client and engineer with one email', 'POST', '/projects', { auth: 'adminToken',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, newClient: { name: 'C', email: 'same.{{$timestamp}}@example.com', password: 'LongEnough1' }, newEngineer: { name: 'E', email: 'same.{{$timestamp}}@example.com', password: 'LongEnough1' } }, expect: 400 }),
+  test("Create project as ENGINEER with another engineer's client", 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, clientId: V('client2') }, expect: 403 }),
+  test('Create project as ENGINEER with new client', 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'New Client Project', address: 'Plot 7, DHA', startDate: '2026-10-01', expectedCompletionDate: '2027-03-31', budgetEstimate: 900000,
+      newClient: { name: 'Fresh Client', email: 'fresh.{{$timestamp}}@example.com', password: 'Client#2026', role: 'ADMIN' } },
+    expect: 201,
+    extra: [...NO_LEAK, 'pm.test("new client is always a CLIENT and the password is not echoed", function () { pm.expect(pm.response.json().client.role).to.equal("CLIENT"); pm.expect(pm.response.text()).to.not.include("Client#2026"); });'] }),
+  test('Create project new client weak password', 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, newClient: { name: 'N', email: 'weak.{{$timestamp}}@example.com', password: 'short' } }, expect: 400 }),
+  test('Create project new client password without a number', 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, newClient: { name: 'N', email: 'nonum.{{$timestamp}}@example.com', password: 'nonumbershere' } }, expect: 400 }),
+  test('Create project new client duplicate email', 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, newClient: { name: 'N', email: 'client1@test.com', password: 'LongEnough1' } }, expect: 409 }),
+  test('Create project with both clientId and newClient', 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, clientId: V('client1'), newClient: { name: 'N', email: 'both@example.com', password: 'LongEnough1' } }, expect: 400 }),
+  test('Create project with bad camera source', 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'X', address: 'A', startDate: '2026-10-01', expectedCompletionDate: '2027-01-01', budgetEstimate: 1, clientId: V('client1'), cameras: [{ name: 'Cam', source: 'not a camera' }] }, expect: 400 }),
+  test('Create project completion before start', 'POST', '/projects', { auth: 'engineer1Token',
+    body: { name: 'X', address: 'A', startDate: '2027-01-01', expectedCompletionDate: '2026-01-01', budgetEstimate: 1, clientId: V('client1') }, expect: 400 }),
   test('Create project as CLIENT', 'POST', '/projects', { auth: 'client1Token', body: { name: 'X' }, expect: 403 }),
   test('Create project missing fields', 'POST', '/projects', { auth: 'adminToken', body: { name: 'X' }, expect: 400 }),
   test('Update project as ADMIN', 'PUT', `/projects/${V('project1')}`, { auth: 'adminToken', body: { status: 'ACTIVE' }, expect: 200 }),
-  test('Update project as ENGINEER', 'PUT', `/projects/${V('project1')}`, { auth: 'engineer1Token', body: { status: 'ON_HOLD' }, expect: 403 }),
+  test('Update project invalid status', 'PUT', `/projects/${V('project1')}`, { auth: 'adminToken', body: { status: 'ACTIV' }, expect: 400 }),
+  test('Update nonexistent project', 'PUT', '/projects/00000000-0000-4000-8000-999999999999', { auth: 'adminToken', body: { status: 'ACTIVE' }, expect: 404 }),
+  // Status: ADMIN or an ENGINEER assigned to the project. Ends back on ACTIVE
+  // so later tests see project1 as seeded.
+  test('Set status as assigned ENGINEER', 'PATCH', `/projects/${V('project1')}/status`, { auth: 'engineer1Token', body: { status: 'ON_HOLD' }, expect: 200,
+    extra: ['pm.test("status changed", function () { pm.expect(pm.response.json().status).to.equal("ON_HOLD"); });'] }),
+  test('Set status as ADMIN', 'PATCH', `/projects/${V('project1')}/status`, { auth: 'adminToken', body: { status: 'ACTIVE' }, expect: 200 }),
+  test('Set status as unassigned ENGINEER', 'PATCH', `/projects/${V('project1')}/status`, { auth: 'engineer2Token', body: { status: 'COMPLETED' }, expect: 404 }),
+  test('Set status as CLIENT', 'PATCH', `/projects/${V('project1')}/status`, { auth: 'client1Token', body: { status: 'COMPLETED' }, expect: 403 }),
+  test('Set status invalid value', 'PATCH', `/projects/${V('project1')}/status`, { auth: 'engineer1Token', body: { status: 'DONE' }, expect: 400 }),
+  test('Set status unauthenticated', 'PATCH', `/projects/${V('project1')}/status`, { body: { status: 'ACTIVE' }, expect: 401 }),
+  test('Set status nonexistent project', 'PATCH', '/projects/00000000-0000-4000-8000-999999999999/status', { auth: 'adminToken', body: { status: 'ACTIVE' }, expect: 404 }),
+  // Edit: ADMIN or an assigned ENGINEER; partial bodies change only what is sent.
+  test('Update project details as assigned ENGINEER', 'PUT', '/projects/{{engineerProject}}', { auth: 'engineer1Token',
+    body: { name: 'Engineer Project (renamed)', address: '14 Canal Road, Lahore', budgetEstimate: 2750000, expectedCompletionDate: '2027-07-31' }, expect: 200,
+    extra: [...NO_LEAK, 'pm.test("details changed, start date kept", function () { const p = pm.response.json(); pm.expect(p.name).to.equal("Engineer Project (renamed)"); pm.expect(p.address).to.equal("14 Canal Road, Lahore"); pm.expect(Number(p.budgetEstimate)).to.equal(2750000); pm.expect(p.startDate).to.include("2026-10-01"); });'] }),
+  test('Update project as unassigned ENGINEER', 'PUT', `/projects/${V('project1')}`, { auth: 'engineer2Token', body: { name: 'Hijacked' }, expect: 404 }),
   test('Update project as CLIENT', 'PUT', `/projects/${V('project1')}`, { auth: 'client1Token', body: { status: 'ON_HOLD' }, expect: 403 }),
-  test('Delete project as ENGINEER', 'DELETE', `/projects/${V('project1')}`, { auth: 'engineer1Token', expect: 403 }),
+  test('Update project completion before stored start', 'PUT', '/projects/{{engineerProject}}', { auth: 'engineer1Token', body: { expectedCompletionDate: '2020-01-01' }, expect: 400 }),
+  test('Update project empty name', 'PUT', '/projects/{{engineerProject}}', { auth: 'engineer1Token', body: { name: '   ' }, expect: 400 }),
+  test('Update project negative budget', 'PUT', '/projects/{{engineerProject}}', { auth: 'adminToken', body: { budgetEstimate: -5 }, expect: 400 }),
+  test('Update project bad GPS', 'PUT', '/projects/{{engineerProject}}', { auth: 'adminToken', body: { gpsLat: 200, gpsLng: 10 }, expect: 400 }),
+  // The plan limit counts open projects only: completing one frees a slot.
+  test('Quota before completing', 'GET', '/projects/quota', { auth: 'engineer1Token', expect: 200,
+    extra: ['pm.environment.set("openBefore", pm.response.json().current);'] }),
+  test('Complete project as assigned ENGINEER', 'PATCH', '/projects/{{engineerProject}}/status', { auth: 'engineer1Token', body: { status: 'COMPLETED' }, expect: 200 }),
+  test('Completed project frees a slot', 'GET', '/projects/quota', { auth: 'engineer1Token', expect: 200,
+    extra: ['pm.test("one fewer open project", function () { pm.expect(pm.response.json().current).to.equal(Number(pm.environment.get("openBefore")) - 1); });'] }),
+  test('Reopen completed project within the limit', 'PATCH', '/projects/{{engineerProject}}/status', { auth: 'engineer1Token', body: { status: 'ACTIVE' }, expect: 200 }),
+  // Delete: ADMIN only. Engineers complete projects instead.
+  test('Delete project as assigned ENGINEER', 'DELETE', '/projects/{{engineerProject}}', { auth: 'engineer1Token', expect: 403 }),
   test('Delete project as CLIENT', 'DELETE', `/projects/${V('project1')}`, { auth: 'client1Token', expect: 403 }),
+  test('Delete project unauthenticated', 'DELETE', '/projects/{{engineerProject}}', { expect: 401 }),
+  test('Delete engineer project as ADMIN', 'DELETE', '/projects/{{engineerProject}}', { auth: 'adminToken', expect: 200 }),
+  test('Deleted project is gone', 'GET', '/projects/{{engineerProject}}', { auth: 'adminToken', expect: 404 }),
+  test('Delete project as ADMIN', 'DELETE', '/projects/{{adminProject}}', { auth: 'adminToken', expect: 200 }),
+  test('Delete nonexistent project', 'DELETE', '/projects/00000000-0000-4000-8000-999999999999', { auth: 'adminToken', expect: 404 }),
+  // Admin user management: ADMIN creates ENGINEER/CLIENT accounts, never ADMIN.
+  test('Create engineer as ADMIN', 'POST', '/users', { auth: 'adminToken', body: { name: 'New Engineer', email: 'eng.{{$timestamp}}@example.com', password: 'Engineer2026', role: 'ENGINEER' }, expect: 201,
+    extra: [...NO_LEAK, 'pm.test("role is ENGINEER", function () { pm.expect(pm.response.json().role).to.equal("ENGINEER"); });', 'pm.environment.set("newEngineer", pm.response.json().id);'] }),
+  test('Create client as ADMIN', 'POST', '/users', { auth: 'adminToken', body: { name: 'New Client', email: 'cli.{{$timestamp}}@example.com', password: 'Client2026', role: 'CLIENT' }, expect: 201, extra: NO_LEAK }),
+  test('Create admin as ADMIN (not allowed)', 'POST', '/users', { auth: 'adminToken', body: { name: 'X', email: 'adm.{{$timestamp}}@example.com', password: 'Admin20266', role: 'ADMIN' }, expect: 400 }),
+  test('Create user weak password', 'POST', '/users', { auth: 'adminToken', body: { name: 'X', email: 'weak.{{$timestamp}}@example.com', password: 'weakpassword', role: 'CLIENT' }, expect: 400 }),
+  test('Create user duplicate email', 'POST', '/users', { auth: 'adminToken', body: { name: 'X', email: 'client1@test.com', password: 'Client2026', role: 'CLIENT' }, expect: 409 }),
+  test('Create user as ENGINEER', 'POST', '/users', { auth: 'engineer1Token', body: { name: 'X', email: 'x@example.com', password: 'Client2026', role: 'CLIENT' }, expect: 403 }),
+  test('Create user as CLIENT', 'POST', '/users', { auth: 'client1Token', body: { name: 'X', email: 'x@example.com', password: 'Client2026', role: 'CLIENT' }, expect: 403 }),
+  test('List users as ADMIN', 'GET', '/users', { auth: 'adminToken', expect: 200, extra: NO_LEAK }),
+  test('List users as ENGINEER', 'GET', '/users', { auth: 'engineer1Token', expect: 403 }),
+  test('Assign the new engineer as ADMIN', 'POST', `/projects/${V('project2')}/assign-engineer`, { auth: 'adminToken', body: { engineerId: '{{newEngineer}}' }, expect: 201 }),
+  test('Assign a CLIENT as engineer', 'POST', `/projects/${V('project1')}/assign-engineer`, { auth: 'adminToken', body: { engineerId: V('client1') }, expect: 400 }),
+  test('Assign engineer to nonexistent project', 'POST', '/projects/00000000-0000-4000-8000-999999999999/assign-engineer', { auth: 'adminToken', body: { engineerId: V('engineer1') }, expect: 404 }),
   test('Assign engineer as ADMIN (duplicate)', 'POST', `/projects/${V('project1')}/assign-engineer`, { auth: 'adminToken', body: { engineerId: V('engineer1') }, expect: 409 }),
   test('Assign engineer as ENGINEER', 'POST', `/projects/${V('project1')}/assign-engineer`, { auth: 'engineer1Token', body: { engineerId: V('engineer2') }, expect: 403 }),
-  test('Assign engineer missing body', 'POST', `/projects/${V('project1')}/assign-engineer`, { auth: 'adminToken', body: {}, expect: 400 })
+  test('Assign engineer missing body', 'POST', `/projects/${V('project1')}/assign-engineer`, { auth: 'adminToken', body: {}, expect: 400 }),
+  // Unassign: ADMIN only; the engineer loses access to the project at once.
+  test('Unassign engineer as ENGINEER', 'DELETE', `/projects/${V('project2')}/engineers/{{newEngineer}}`, { auth: 'engineer1Token', expect: 403 }),
+  test('Unassign engineer as CLIENT', 'DELETE', `/projects/${V('project2')}/engineers/{{newEngineer}}`, { auth: 'client1Token', expect: 403 }),
+  test('Unassign engineer as ADMIN', 'DELETE', `/projects/${V('project2')}/engineers/{{newEngineer}}`, { auth: 'adminToken', expect: 204 }),
+  test('Unassign engineer not on the project', 'DELETE', `/projects/${V('project2')}/engineers/{{newEngineer}}`, { auth: 'adminToken', expect: 404 }),
+  test('Unassign engineer from nonexistent project', 'DELETE', `/projects/00000000-0000-4000-8000-999999999999/engineers/${V('engineer1')}`, { auth: 'adminToken', expect: 404 })
 );
 folders.push({ name: '02 Projects', item: projectItems });
 
@@ -282,6 +385,7 @@ READ_SCOPE.forEach(([tok, code, label]) => {
 cameraItems.push(
   test('Create camera as ADMIN', 'POST', `/projects/${V('project1')}/cameras`, { auth: 'adminToken', body: { name: 'Postman Cam', zone: 'STORAGE', rtspUrl: 'rtsp://127.0.0.1:8554/testcam' }, expect: 201 }),
   test('Create camera as assigned ENGINEER', 'POST', `/projects/${V('project1')}/cameras`, { auth: 'engineer1Token', body: { name: 'Eng Cam', zone: 'WORK_AREA', rtspUrl: 'rtsp://127.0.0.1:8554/testcam' }, expect: 201 }),
+  test('Create camera with invalid source', 'POST', `/projects/${V('project1')}/cameras`, { auth: 'adminToken', body: { name: 'Bad', zone: 'STORAGE', rtspUrl: 'not a camera' }, expect: 400 }),
   test('Create camera as unassigned ENGINEER', 'POST', `/projects/${V('project1')}/cameras`, { auth: 'engineer2Token', body: { name: 'X', zone: 'WORK_AREA', rtspUrl: 'rtsp://x' }, expect: 403 }),
   test('Create camera as CLIENT', 'POST', `/projects/${V('project1')}/cameras`, { auth: 'client1Token', body: { name: 'X', zone: 'WORK_AREA', rtspUrl: 'rtsp://x' }, expect: 403 }),
   test('Create camera invalid zone', 'POST', `/projects/${V('project1')}/cameras`, { auth: 'adminToken', body: { name: 'X', zone: 'ROOF', rtspUrl: 'rtsp://x' }, expect: 400 }),
@@ -342,8 +446,11 @@ safetyItems.push(
   test('Internal safety-alert unknown worker', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), workerId: '00000000-0000-4000-8000-999999999999', violationType: 'NO_HELMET', confidence: 0.9 }, expect: 404 }),
   // No workerId: recorded as an unidentified violation (a bare head the AI
   // service could not match to an enrolled worker), not rejected.
-  test('Internal safety-alert unidentified (no workerId)', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), violationType: 'NO_HELMET', confidence: 0.9 }, expect: 201,
-    extra: ['pm.test("recorded without a worker", function () { pm.expect(pm.response.json().workerId).to.equal(null); });'] }),
+  test('Internal safety-alert unidentified (no workerId)', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea'), violationType: 'NO_HELMET', confidence: 0.9 },
+    // 202 when a previous run on the same server process is still in its
+    // in-memory cooldown - the suite stays re-runnable without a restart.
+    expect: [201, 202],
+    extra: ['pm.test("recorded without a worker", function () { if (pm.response.code === 201) pm.expect(pm.response.json().workerId).to.equal(null); });'] }),
   test('Internal safety-alert missing fields', 'POST', '/internal/safety-alert', { headers: { 'X-Internal-Token': V('internalToken') }, body: { cameraId: V('cameraWorkArea') }, expect: 400 })
 );
 folders.push({ name: '07 Safety', item: safetyItems });
@@ -360,6 +467,12 @@ READ_SCOPE.forEach(([tok, code, label]) => {
     extra: [`pm.test("range echoed as ${range}", function () { pm.expect(pm.response.json().range).to.eql("${range}"); });`] }));
 });
 attendanceItems.push(
+  // Detect & mark attendance: security/validation only (a real scan needs a camera and a face).
+  test('Attendance scan unauthenticated', 'POST', `/projects/${V('project1')}/attendance/scan`, { body: { cameraId: V('cameraEntrance') }, expect: 401 }),
+  test('Attendance scan as CLIENT', 'POST', `/projects/${V('project1')}/attendance/scan`, { auth: 'client1Token', body: { cameraId: V('cameraEntrance') }, expect: 403 }),
+  test('Attendance scan as unassigned ENGINEER', 'POST', `/projects/${V('project1')}/attendance/scan`, { auth: 'engineer2Token', body: { cameraId: V('cameraEntrance') }, expect: 404 }),
+  test('Attendance scan missing cameraId', 'POST', `/projects/${V('project1')}/attendance/scan`, { auth: 'engineer1Token', body: {}, expect: 400 }),
+  test('Attendance scan camera from another project', 'POST', `/projects/${V('project2')}/attendance/scan`, { auth: 'adminToken', body: { cameraId: V('cameraEntrance') }, expect: 404 }),
   test('Attendance invalid range', 'GET', `/projects/${V('project1')}/attendance?range=yearly`, { auth: 'adminToken', expect: 400 }),
   test('Weekly count >= daily count', 'GET', `/projects/${V('project1')}/attendance?range=weekly`, { auth: 'adminToken', expect: 200,
     extra: ['pm.test("seeded 3 days of attendance are visible weekly", function () {',
@@ -437,7 +550,8 @@ analyticsItems.push(
             '});'] }),
   test('Generate report as ADMIN', 'POST', `/projects/${V('project1')}/reports/generate-now`, { auth: 'adminToken', body: { reportType: 'DAILY' }, expect: 201,
     extra: ['pm.test("returns a PDF url", function () { pm.expect(pm.response.json().pdfUrl).to.include(".pdf"); });'] }),
-  test('Generate report as ENGINEER', 'POST', `/projects/${V('project1')}/reports/generate-now`, { auth: 'engineer1Token', body: { reportType: 'DAILY' }, expect: 403 }),
+  test('Generate report as assigned ENGINEER', 'POST', `/projects/${V('project1')}/reports/generate-now`, { auth: 'engineer1Token', body: { reportType: 'DAILY' }, expect: 201 }),
+  test('Generate report as unassigned ENGINEER', 'POST', `/projects/${V('project1')}/reports/generate-now`, { auth: 'engineer2Token', body: { reportType: 'DAILY' }, expect: 404 }),
   test('Generate report as CLIENT', 'POST', `/projects/${V('project1')}/reports/generate-now`, { auth: 'client1Token', body: { reportType: 'DAILY' }, expect: 403 }),
   test('Generate report invalid type', 'POST', `/projects/${V('project1')}/reports/generate-now`, { auth: 'adminToken', body: { reportType: 'HOURLY' }, expect: 400 })
 );

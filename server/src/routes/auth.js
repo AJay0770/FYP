@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken } = require('../middleware/auth');
+const { passwordProblem } = require('../utils/passwordPolicy');
 
 const prisma = new PrismaClient();
 
@@ -15,6 +16,11 @@ router.post('/register', async (req, res) => {
     // Validation
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
+    const weak = passwordProblem(password);
+    if (weak) {
+      return res.status(400).json({ error: weak });
     }
 
     // Check if user exists

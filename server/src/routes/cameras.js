@@ -22,6 +22,13 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: `zone must be one of: ${ZONES.join(', ')}` });
     }
 
+    // The source becomes an ffmpeg/OpenCV input, so it is validated like every
+    // other camera-source path (PATCH below, project creation) before storing.
+    const classified = classifySource(rtspUrl);
+    if (!isWellFormed(classified.source) || !classified.safe) {
+      return res.status(400).json({ error: `Camera source rejected: ${classified.reason || 'malformed source'}` });
+    }
+
     if (req.user.role === 'ADMIN') {
       const project = await prisma.project.findUnique({ where: { id: projectId } });
       if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -35,7 +42,7 @@ router.post('/', authenticateToken, async (req, res) => {
     }
 
     const camera = await prisma.camera.create({
-      data: { projectId, name, zone, rtspUrl },
+      data: { projectId, name, zone, rtspUrl: classified.source },
     });
 
     res.status(201).json(camera);

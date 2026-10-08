@@ -217,7 +217,9 @@ async function seedProject(project, admin) {
         projectId: project.id,
         cameraId: cameras[i % cameras.length].id,
         workerId: workers[Math.floor(rand(project.id, 'alert', i) * workers.length)],
-        violationType: rand(project.id, 'type', i) < 0.65 ? 'NO_HELMET' : 'NO_VEST',
+        // NO_HELMET only: the detector can't produce NO_VEST (no "missing
+        // vest" class), so demo data must not show vest violations either.
+        violationType: 'NO_HELMET',
         confidenceScore: (0.62 + rand(project.id, 'conf', i) * 0.33).toFixed(4),
         frameImageUrl: '',
         createdAt: daysAgo(days, 9 + (i % 7), (i * 13) % 60),

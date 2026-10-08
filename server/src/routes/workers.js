@@ -44,8 +44,14 @@ router.post('/enroll', authenticateToken, authorizeRole('ADMIN', 'ENGINEER'), as
     } catch (err) {
       const detail = err.response?.data?.detail || err.message;
       console.error('AI enrolment call failed:', detail);
+      // 400/422 mean the service ran but rejected the photos (e.g. "No usable
+      // face found") - that is the user's to fix, so pass it on as such.
+      const status = err.response?.status;
+      if ((status === 400 || status === 422) && typeof detail === 'string') {
+        return res.status(422).json({ error: `Enrollment failed: ${detail}` });
+      }
       // 503: the AI service, not this request, is what failed.
-      return res.status(503).json({ error: `Face enrolment service unavailable: ${detail}` });
+      return res.status(503).json({ error: 'Face enrollment service unavailable. Make sure the AI service is running.' });
     }
 
     if (!Array.isArray(embedding) || embedding.length === 0) {
