@@ -1,0 +1,302 @@
+
+> buildsite360@1.0.0 dev:server
+> npm run dev --workspace=server
+
+
+> buildsite360-server@1.0.0 dev
+> nodemon src/index.js
+
+[33m[nodemon] 2.0.22[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,json[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:7788) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:2080) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[camera 687348ac-bdee-48b5-837a-8f120bad6b0d] ffmpeg: [in#0/mpjpeg @ 0000022554613c40] Error during demuxing: I/O error
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:20004) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:7944) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:14752) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:22916) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:19372) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:21584) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:10716) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:16484) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:23276) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:2564) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[reportCron] running DAILY batch
+[email skipped — SMTP not configured] would send "DAILY report — Riverside Tower" to client1@test.com with http://localhost:9000/buildsite-dev/1790622000548-6f4fdf91-1b66-4ab4-bbbc-878c344e1af7-Riverside_Tower-daily-report.pdf
+[reportCron] DAILY report for "Riverside Tower" -> http://localhost:9000/buildsite-dev/1790622000548-6f4fdf91-1b66-4ab4-bbbc-878c344e1af7-Riverside_Tower-daily-report.pdf
+[camera 412fa325-fcce-4ce0-9b62-a1aa59ef8106] ffmpeg: [in#0/mpjpeg @ 000001d4c4a21580] Error during demuxing: I/O error
+[camera 2a1ad79b-fa74-4121-b3b6-7cfa2a9f32b9] ffmpeg: [in#0/mpjpeg @ 0000029629a155c0] Error during demuxing: I/O error
+[camera 40d0a09d-9d7c-488e-a69d-b2cbfd7eb83e] ffmpeg: [in#0/mpjpeg @ 0000022f4c2f2b40] Error during demuxing: I/O error
+[camera 40d0a09d-9d7c-488e-a69d-b2cbfd7eb83e] ffmpeg: [in#0/mpjpeg @ 000002102ce29240] Error during demuxing: I/O error
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:4236) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[camera d2151a97-914c-4216-859a-4b684c1d3203] ffmpeg: [in#0/mpjpeg @ 0000022b00501d40] Error during demuxing: I/O error
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:20984) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:1736) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:17184) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node src/index.js`[39m
+[reportCron] scheduled DAILY (0 0 * * *) and WEEKLY (0 0 * * 0) in Asia/Karachi
+(node:12656) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3000
+ffmpeg RTSP timeout flag detected: -timeout
+Safety stream upstream error: aborted
+Safety stream upstream error: aborted
+[camera d2151a97-914c-4216-859a-4b684c1d3203] ffmpeg: [in#0/mpjpeg @ 0000019291142f80] Error during demuxing: I/O error
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+detections/latest upstream failed: fetch failed
+[camera 077cae13-b637-4d53-8dc8-7f4f8ea57e6e] ffmpeg: [in#0/mpjpeg @ 000001dcaf481c80] Error during demuxing: I/O error
+[camera d2151a97-914c-4216-859a-4b684c1d3203] ffmpeg: [in#0/mpjpeg @ 0000018fefd63880] Error during demuxing: I/O error
+[camera 077cae13-b637-4d53-8dc8-7f4f8ea57e6e] ffmpeg: [in#0/mpjpeg @ 0000013c76d92c00] Error during demuxing: I/O error
+[camera d2151a97-914c-4216-859a-4b684c1d3203] ffmpeg: [in#0/mpjpeg @ 00000242662520c0] Error during demuxing: I/O error
+[camera 077cae13-b637-4d53-8dc8-7f4f8ea57e6e] ffmpeg: [in#0/mpjpeg @ 000001c1e02c5040] Error during demuxing: I/O error
+[camera 077cae13-b637-4d53-8dc8-7f4f8ea57e6e] ffmpeg: [in#0/mpjpeg @ 0000026a0e502340] Error during demuxing: I/O error
+[camera d2151a97-914c-4216-859a-4b684c1d3203] ffmpeg: [in#0/mpjpeg @ 0000023365e91a80] Error during demuxing: I/O error
+[camera 69c37466-3ed2-44a6-bffe-b4a17131a3a0] ffmpeg: [in#0/mpjpeg @ 000002278a711d80] Error during demuxing: I/O error
+Safety stream upstream error: aborted

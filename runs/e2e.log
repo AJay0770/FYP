@@ -1,0 +1,907 @@
+
+[1/3] Seeding database...
+Clearing existing data...
+Creating users...
+Creating projects...
+Creating site updates...
+Creating material entries (with an intentional discrepancy)...
+Creating cameras...
+Creating safety alerts...
+Creating chat messages...
+Creating worker + attendance...
+Creating subscription...
+
+=== Seed complete ===
+
+All users share password: password123
+
+Fixed IDs:
+  admin            00000000-0000-4000-8000-000000000001
+  engineer1        00000000-0000-4000-8000-000000000002
+  engineer2        00000000-0000-4000-8000-000000000003
+  client1          00000000-0000-4000-8000-000000000004
+  client2          00000000-0000-4000-8000-000000000005
+  project1         00000000-0000-4000-8000-000000000101
+  project2         00000000-0000-4000-8000-000000000102
+  cameraEntrance   00000000-0000-4000-8000-000000000201
+  cameraWorkArea   00000000-0000-4000-8000-000000000202
+  worker1          00000000-0000-4000-8000-000000000301
+  worker2          00000000-0000-4000-8000-000000000302
+  subscription     00000000-0000-4000-8000-000000000401
+
+Data created:
+  5 users, 2 projects, 3 site updates, 7 material entries (Bricks has a discrepancy)
+  2 cameras (ENTRANCE + WORK_AREA), 3 safety alerts, 3 chat messages
+  1 worker with 3 days attendance, 1 ACTIVE PRO subscription
+
+IDs and tokens written to E:\Projects\FYP\server\tests\seed-output.json
+(Import that file as a Postman environment, or read it from test scripts.)
+
+
+[2/3] Building collection + environment...
+Wrote 272 tests across 12 folders to E:\Projects\FYP\server\tests\e2e.postman_collection.json
+  01 Auth: 16
+  02 Projects: 56
+  03 Site Updates: 18
+  04 Materials: 32
+  05 Chat: 11
+  06 Cameras: 31
+  07 Safety: 15
+  08 Workers & Attendance: 36
+  09 Analytics & Reports: 17
+  10 Media: 27
+  11 Billing: 12
+  12 Health: 1
+
+[3/3] Running collection...
+newman
+
+BuildSite 360 — Full E2E
+
+□ 01 Auth
+└ 001. Refresh without cookie
+  POST http://localhost:3100/api/auth/refresh [401 Unauthorized, 385B, 28ms]
+
+└ 002. Register new user
+  POST http://localhost:3100/api/auth/register [201 Created, 563B, 374ms]
+
+└ 003. Register password too short
+  POST http://localhost:3100/api/auth/register [400 Bad Request, 400B, 3ms]
+
+└ 004. Register password without a number
+  POST http://localhost:3100/api/auth/register [400 Bad Request, 403B, 2ms]
+
+└ 005. Register missing fields
+  POST http://localhost:3100/api/auth/register [400 Bad Request, 400B, 3ms]
+
+└ 006. Register duplicate email
+  POST http://localhost:3100/api/auth/register [409 Conflict, 383B, 4ms]
+
+└ 007. Login valid
+  POST http://localhost:3100/api/auth/login [200 OK, 981B, 227ms]
+
+└ 008. Login wrong password
+  POST http://localhost:3100/api/auth/login [401 Unauthorized, 388B, 235ms]
+
+└ 009. Login unknown email
+  POST http://localhost:3100/api/auth/login [401 Unauthorized, 388B, 5ms]
+
+└ 010. Login missing fields
+  POST http://localhost:3100/api/auth/login [400 Bad Request, 393B, 4ms]
+
+└ 011. Me with valid token
+  GET http://localhost:3100/api/auth/me [200 OK, 486B, 6ms]
+
+└ 012. Me without token
+  GET http://localhost:3100/api/auth/me [401 Unauthorized, 384B, 5ms]
+
+└ 013. Me with expired token
+  GET http://localhost:3100/api/auth/me [401 Unauthorized, 387B, 3ms]
+
+└ 014. Me with malformed token
+  GET http://localhost:3100/api/auth/me [401 Unauthorized, 387B, 3ms]
+
+└ 015. Logout
+  POST http://localhost:3100/api/auth/logout [200 OK, 462B, 9ms]
+
+└ 016. Refresh with revoked cookie after logout
+  POST http://localhost:3100/api/auth/refresh [401 Unauthorized, 385B, 3ms]
+
+□ 02 Projects
+└ 017. List projects as ADMIN
+  GET http://localhost:3100/api/projects [200 OK, 1.92kB, 146ms]
+
+└ 018. List projects as ENGINEER (scoped)
+  GET http://localhost:3100/api/projects [200 OK, 1.13kB, 6ms]
+
+└ 019. List projects as CLIENT (scoped)
+  GET http://localhost:3100/api/projects [200 OK, 1.13kB, 5ms]
+
+└ 020. List projects unauthenticated
+  GET http://localhost:3100/api/projects [401 Unauthorized, 384B, 2ms]
+
+└ 021. Get project1 as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [200 OK, 1.23kB, 6ms]
+
+└ 022. Get project1 as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [200 OK, 1.23kB, 5ms]
+
+└ 023. Get project1 as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [200 OK, 1.23kB, 4ms]
+
+└ 024. Get project1 as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [404 Not Found, 377B, 5ms]
+
+└ 025. Get project1 as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [404 Not Found, 377B, 5ms]
+
+└ 026. Get nonexistent project
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-999999999999 [404 Not Found, 377B, 4ms]
+
+└ 027. Project quota as ENGINEER
+  GET http://localhost:3100/api/projects/quota [200 OK, 408B, 78ms]
+
+└ 028. Project quota as CLIENT
+  GET http://localhost:3100/api/projects/quota [403 Forbidden, 369B, 2ms]
+
+└ 029. List clients as ENGINEER (own projects only)
+  GET http://localhost:3100/api/users/clients [200 OK, 435B, 6ms]
+
+└ 030. List clients as ADMIN
+  GET http://localhost:3100/api/users/clients [200 OK, 636B, 4ms]
+
+└ 031. List clients as CLIENT
+  GET http://localhost:3100/api/users/clients [403 Forbidden, 369B, 4ms]
+
+└ 032. List clients unauthenticated
+  GET http://localhost:3100/api/users/clients [401 Unauthorized, 384B, 1ms]
+
+└ 033. Create project as ENGINEER (existing client, 2 cameras)
+  POST http://localhost:3100/api/projects [201 Created, 1.55kB, 39ms]
+
+└ 034. Create project as ENGINEER with another engineer's client
+  POST http://localhost:3100/api/projects [403 Forbidden, 411B, 6ms]
+
+└ 035. Create project as ENGINEER with new client
+  POST http://localhost:3100/api/projects [201 Created, 1.14kB, 227ms]
+
+└ 036. Create project new client weak password
+  POST http://localhost:3100/api/projects [400 Bad Request, 417B, 5ms]
+
+└ 037. Create project new client password without a number
+  POST http://localhost:3100/api/projects [400 Bad Request, 420B, 5ms]
+
+└ 038. Create project new client duplicate email
+  POST http://localhost:3100/api/projects [409 Conflict, 440B, 5ms]
+
+└ 039. Create project with both clientId and newClient
+  POST http://localhost:3100/api/projects [400 Bad Request, 398B, 5ms]
+
+└ 040. Create project with bad camera source
+  POST http://localhost:3100/api/projects [400 Bad Request, 467B, 4ms]
+
+└ 041. Create project completion before start
+  POST http://localhost:3100/api/projects [400 Bad Request, 411B, 6ms]
+
+└ 042. Create project as CLIENT
+  POST http://localhost:3100/api/projects [403 Forbidden, 369B, 3ms]
+
+└ 043. Create project missing fields
+  POST http://localhost:3100/api/projects [400 Bad Request, 442B, 5ms]
+
+└ 044. Update project as ADMIN
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [200 OK, 1.01kB, 29ms]
+
+└ 045. Update project invalid status
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [400 Bad Request, 421B, 3ms]
+
+└ 046. Update nonexistent project
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-999999999999 [404 Not Found, 377B, 39ms]
+
+└ 047. Set status as assigned ENGINEER
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/status [200 OK, 445B, 6ms]
+
+└ 048. Set status as ADMIN
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/status [200 OK, 444B, 22ms]
+
+└ 049. Set status as unassigned ENGINEER
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/status [404 Not Found, 377B, 4ms]
+
+└ 050. Set status as CLIENT
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/status [403 Forbidden, 369B, 3ms]
+
+└ 051. Set status invalid value
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/status [400 Bad Request, 421B, 3ms]
+
+└ 052. Set status unauthenticated
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/status [401 Unauthorized, 384B, 2ms]
+
+└ 053. Set status nonexistent project
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-999999999999/status [404 Not Found, 377B, 3ms]
+
+└ 054. Update project as ENGINEER
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [403 Forbidden, 369B, 3ms]
+
+└ 055. Update project as CLIENT
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [403 Forbidden, 369B, 2ms]
+
+└ 056. Delete project as ENGINEER
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [403 Forbidden, 369B, 2ms]
+
+└ 057. Delete project as CLIENT
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101 [403 Forbidden, 369B, 2ms]
+
+└ 058. Create engineer as ADMIN
+  POST http://localhost:3100/api/users [201 Created, 508B, 233ms]
+
+└ 059. Create client as ADMIN
+  POST http://localhost:3100/api/users [201 Created, 504B, 244ms]
+
+└ 060. Create admin as ADMIN (not allowed)
+  POST http://localhost:3100/api/users [400 Bad Request, 399B, 2ms]
+
+└ 061. Create user weak password
+  POST http://localhost:3100/api/users [400 Bad Request, 403B, 3ms]
+
+└ 062. Create user duplicate email
+  POST http://localhost:3100/api/users [409 Conflict, 396B, 4ms]
+
+└ 063. Create user as ENGINEER
+  POST http://localhost:3100/api/users [403 Forbidden, 369B, 3ms]
+
+└ 064. Create user as CLIENT
+  POST http://localhost:3100/api/users [403 Forbidden, 369B, 3ms]
+
+└ 065. List users as ADMIN
+  GET http://localhost:3100/api/users [200 OK, 2.2kB, 28ms]
+
+└ 066. List users as ENGINEER
+  GET http://localhost:3100/api/users [403 Forbidden, 369B, 2ms]
+
+└ 067. Assign the new engineer as ADMIN
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000102/assign-engineer [201 Created, 534B, 7ms]
+
+└ 068. Assign a CLIENT as engineer
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/assign-engineer [400 Bad Request, 401B, 5ms]
+
+└ 069. Assign engineer to nonexistent project
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-999999999999/assign-engineer [404 Not Found, 377B, 4ms]
+
+└ 070. Assign engineer as ADMIN (duplicate)
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/assign-engineer [409 Conflict, 400B, 27ms]
+
+└ 071. Assign engineer as ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/assign-engineer [403 Forbidden, 369B, 3ms]
+
+└ 072. Assign engineer missing body
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/assign-engineer [400 Bad Request, 381B, 3ms]
+
+□ 03 Site Updates
+└ 073. List updates as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [200 OK, 1.33kB, 51ms]
+
+└ 074. List updates as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [200 OK, 1.33kB, 5ms]
+
+└ 075. List updates as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [200 OK, 1.33kB, 6ms]
+
+└ 076. List updates as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [404 Not Found, 377B, 3ms]
+
+└ 077. List updates as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [404 Not Found, 377B, 4ms]
+
+└ 078. Updates are newest-first
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [200 OK, 1.33kB, 5ms]
+
+└ 079. Create update as assigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [201 Created, 600B, 18ms]
+
+└ 080. Create update as unassigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [403 Forbidden, 399B, 5ms]
+
+└ 081. Create update as ADMIN (engineer-only)
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [403 Forbidden, 369B, 3ms]
+
+└ 082. Create update as CLIENT
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [403 Forbidden, 369B, 3ms]
+
+└ 083. Create update missing description
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates [400 Bad Request, 385B, 3ms]
+
+└ 084. Presign valid jpg
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates/presign [200 OK, 870B, 18ms]
+
+└ 085. Presign valid mp4
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates/presign [200 OK, 870B, 5ms]
+
+└ 086. Presign rejects .exe
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates/presign [400 Bad Request, 389B, 3ms]
+
+└ 087. Presign rejects oversized
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates/presign [400 Bad Request, 395B, 4ms]
+
+└ 088. Presign missing fields
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates/presign [400 Bad Request, 399B, 7ms]
+
+└ 089. Presign as unassigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates/presign [403 Forbidden, 399B, 3ms]
+
+└ 090. Presign as CLIENT
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/updates/presign [403 Forbidden, 369B, 3ms]
+
+□ 04 Materials
+└ 091. List materials as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [200 OK, 3.01kB, 7ms]
+
+└ 092. Materials summary as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/summary [200 OK, 635B, 7ms]
+
+└ 093. List materials as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [200 OK, 3.01kB, 5ms]
+
+└ 094. Materials summary as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/summary [200 OK, 635B, 6ms]
+
+└ 095. List materials as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [200 OK, 3.01kB, 5ms]
+
+└ 096. Materials summary as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/summary [200 OK, 635B, 4ms]
+
+└ 097. List materials as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [404 Not Found, 377B, 5ms]
+
+└ 098. Materials summary as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/summary [404 Not Found, 377B, 4ms]
+
+└ 099. List materials as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [404 Not Found, 377B, 4ms]
+
+└ 100. Materials summary as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/summary [404 Not Found, 377B, 4ms]
+
+└ 101. Summary flags the seeded Bricks discrepancy
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/summary [200 OK, 635B, 4ms]
+
+└ 102. Create material as assigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [201 Created, 660B, 37ms]
+
+└ 103. Create material as unassigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [403 Forbidden, 399B, 3ms]
+
+└ 104. Create material as ADMIN
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [201 Created, 651B, 32ms]
+
+└ 105. Create material invalid entryType
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [400 Bad Request, 400B, 4ms]
+
+└ 106. Create material missing fields
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [400 Bad Request, 385B, 2ms]
+
+└ 107. Create material for update/delete
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [201 Created, 670B, 21ms]
+
+└ 108. Update material as unassigned ENGINEER
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/339ff80e-7f6b-463b-9174-c676e252acb2 [403 Forbidden, 399B, 4ms]
+
+└ 109. Update material as ADMIN
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/339ff80e-7f6b-463b-9174-c676e252acb2 [200 OK, 643B, 38ms]
+
+└ 110. Update material as CLIENT
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/339ff80e-7f6b-463b-9174-c676e252acb2 [403 Forbidden, 369B, 2ms]
+
+└ 111. Update material missing fields
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/339ff80e-7f6b-463b-9174-c676e252acb2 [400 Bad Request, 385B, 2ms]
+
+└ 112. Update material invalid entryType
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/339ff80e-7f6b-463b-9174-c676e252acb2 [400 Bad Request, 400B, 2ms]
+
+└ 113. Update material nonexistent id
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/00000000-0000-4000-8000-999999999999 [404 Not Found, 384B, 4ms]
+
+└ 114. Update material as assigned ENGINEER
+  PUT http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/339ff80e-7f6b-463b-9174-c676e252acb2 [200 OK, 677B, 28ms]
+
+└ 115. Delete material as unassigned ENGINEER
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/339ff80e-7f6b-463b-9174-c676e252acb2 [403 Forbidden, 399B, 3ms]
+
+└ 116. Delete material as CLIENT
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/339ff80e-7f6b-463b-9174-c676e252acb2 [403 Forbidden, 369B, 2ms]
+
+└ 117. Delete material nonexistent id
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/00000000-0000-4000-8000-999999999999 [404 Not Found, 384B, 4ms]
+
+└ 118. Delete material as assigned ENGINEER
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/339ff80e-7f6b-463b-9174-c676e252acb2 [204 No Content, 240B, 12ms]
+
+└ 119. Get deleted material is gone
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [200 OK, 3.87kB, 6ms]
+
+└ 120. Create material for admin-delete test
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [201 Created, 664B, 20ms]
+
+└ 121. Delete material as ADMIN
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials/87cf5d67-7f32-4260-aaa7-5d2651607b15 [204 No Content, 240B, 4ms]
+
+└ 122. Get admin-deleted material is gone
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/materials [200 OK, 3.87kB, 6ms]
+
+□ 05 Chat
+└ 123. Chat history as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/history [200 OK, 1.48kB, 7ms]
+
+└ 124. Chat history as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/history [200 OK, 1.48kB, 5ms]
+
+└ 125. Chat history as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/history [200 OK, 1.48kB, 5ms]
+
+└ 126. Chat history as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/history [404 Not Found, 377B, 4ms]
+
+└ 127. Chat history as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/history [404 Not Found, 377B, 4ms]
+
+└ 128. Chat history is chronological
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/history [200 OK, 1.48kB, 6ms]
+
+└ 129. Chat presign as CLIENT
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/presign [200 OK, 878B, 6ms]
+
+└ 130. Chat presign as ADMIN
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/presign [200 OK, 878B, 6ms]
+
+└ 131. Chat presign rejects .exe
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/presign [400 Bad Request, 389B, 4ms]
+
+└ 132. Chat presign rejects oversized
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/presign [400 Bad Request, 395B, 4ms]
+
+└ 133. Chat presign cross-tenant
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/chat/presign [404 Not Found, 377B, 4ms]
+
+□ 06 Cameras
+└ 134. List cameras as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [200 OK, 819B, 6ms]
+
+└ 135. List cameras as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [200 OK, 819B, 6ms]
+
+└ 136. List cameras as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [200 OK, 819B, 4ms]
+
+└ 137. List cameras as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [404 Not Found, 377B, 4ms]
+
+└ 138. List cameras as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [404 Not Found, 377B, 3ms]
+
+└ 139. Create camera as ADMIN
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [201 Created, 581B, 5ms]
+
+└ 140. Create camera as assigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [201 Created, 579B, 4ms]
+
+└ 141. Create camera with invalid source
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [400 Bad Request, 481B, 3ms]
+
+└ 142. Create camera as unassigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [403 Forbidden, 399B, 3ms]
+
+└ 143. Create camera as CLIENT
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [403 Forbidden, 369B, 2ms]
+
+└ 144. Create camera invalid zone
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [400 Bad Request, 411B, 2ms]
+
+└ 145. Create camera missing fields
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras [400 Bad Request, 398B, 3ms]
+
+└ 146. Update camera source as ADMIN
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras/00000000-0000-4000-8000-000000000202 [200 OK, 582B, 33ms]
+
+└ 147. Update camera source as assigned ENGINEER
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras/00000000-0000-4000-8000-000000000202 [200 OK, 582B, 5ms]
+
+└ 148. Update camera source as unassigned ENGINEER
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras/00000000-0000-4000-8000-000000000202 [403 Forbidden, 399B, 3ms]
+
+└ 149. Update camera source as CLIENT
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras/00000000-0000-4000-8000-000000000202 [403 Forbidden, 369B, 3ms]
+
+└ 150. Update camera source unauthenticated
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras/00000000-0000-4000-8000-000000000202 [401 Unauthorized, 384B, 2ms]
+
+└ 151. Update camera source unrecognised
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras/00000000-0000-4000-8000-000000000202 [400 Bad Request, 481B, 2ms]
+
+└ 152. Update camera source missing
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/cameras/00000000-0000-4000-8000-000000000202 [400 Bad Request, 407B, 2ms]
+
+└ 153. Update camera via another project
+  PATCH http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000102/cameras/00000000-0000-4000-8000-000000000202 [404 Not Found, 376B, 3ms]
+
+└ 154. Device status unauthenticated
+  GET http://localhost:3100/api/cameras/00000000-0000-4000-8000-000000000202/device [401 Unauthorized, 384B, 2ms]
+
+└ 155. Device status cross-tenant
+  GET http://localhost:3100/api/cameras/00000000-0000-4000-8000-000000000202/device [404 Not Found, 376B, 5ms]
+
+└ 156. Device status nonexistent camera
+  GET http://localhost:3100/api/cameras/00000000-0000-4000-8000-999999999999/device [404 Not Found, 376B, 4ms]
+
+└ 157. Device status on non-webcam camera
+  GET http://localhost:3100/api/cameras/00000000-0000-4000-8000-000000000202/device [400 Bad Request, 401B, 4ms]
+
+└ 158. Assign device on non-webcam camera
+  POST http://localhost:3100/api/cameras/00000000-0000-4000-8000-000000000202/device/assign [400 Bad Request, 401B, 4ms]
+
+└ 159. Assign device cross-tenant
+  POST http://localhost:3100/api/cameras/00000000-0000-4000-8000-000000000202/device/assign [404 Not Found, 376B, 5ms]
+
+└ 160. Release device unauthenticated
+  POST http://localhost:3100/api/cameras/00000000-0000-4000-8000-000000000202/device/release [401 Unauthorized, 384B, 2ms]
+
+└ 161. Stream unauthenticated
+  GET http://localhost:3100/api/cameras/00000000-0000-4000-8000-000000000202/stream [401 Unauthorized, 384B, 1ms]
+
+└ 162. Stream nonexistent camera
+  GET http://localhost:3100/api/cameras/00000000-0000-4000-8000-999999999999/stream [404 Not Found, 376B, 3ms]
+
+└ 163. Record clip unauthenticated
+  POST http://localhost:3100/api/cameras/00000000-0000-4000-8000-000000000202/record-clip [401 Unauthorized, 384B, 1ms]
+
+└ 164. Record clip cross-tenant
+  POST http://localhost:3100/api/cameras/00000000-0000-4000-8000-000000000202/record-clip [404 Not Found, 376B, 5ms]
+
+□ 07 Safety
+└ 165. Safety alerts as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/safety-alerts [200 OK, 1.7kB, 39ms]
+
+└ 166. Safety alerts as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/safety-alerts [200 OK, 1.7kB, 8ms]
+
+└ 167. Safety alerts as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/safety-alerts [200 OK, 1.7kB, 6ms]
+
+└ 168. Safety alerts as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/safety-alerts [404 Not Found, 377B, 4ms]
+
+└ 169. Safety alerts as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/safety-alerts [404 Not Found, 377B, 5ms]
+
+└ 170. Safety alerts paginated newest-first
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/safety-alerts?limit=2 [200 OK, 1.26kB, 6ms]
+
+└ 171. Internal safety-alert without token
+  POST http://localhost:3100/api/internal/safety-alert [401 Unauthorized, 388B, 2ms]
+
+└ 172. Internal safety-alert wrong token
+  POST http://localhost:3100/api/internal/safety-alert [401 Unauthorized, 385B, 2ms]
+
+└ 173. Internal safety-alert with user JWT
+  POST http://localhost:3100/api/internal/safety-alert [401 Unauthorized, 385B, 2ms]
+
+└ 174. Internal safety-alert invalid violationType
+  POST http://localhost:3100/api/internal/safety-alert [400 Bad Request, 410B, 2ms]
+
+└ 175. Internal safety-alert confidence out of range
+  POST http://localhost:3100/api/internal/safety-alert [400 Bad Request, 405B, 2ms]
+
+└ 176. Internal safety-alert unknown camera
+  POST http://localhost:3100/api/internal/safety-alert [404 Not Found, 376B, 3ms]
+
+└ 177. Internal safety-alert unknown worker
+  POST http://localhost:3100/api/internal/safety-alert [404 Not Found, 402B, 5ms]
+
+└ 178. Internal safety-alert unidentified (no workerId)
+  POST http://localhost:3100/api/internal/safety-alert [201 Created, 733B, 26ms]
+
+└ 179. Internal safety-alert missing fields
+  POST http://localhost:3100/api/internal/safety-alert [400 Bad Request, 414B, 2ms]
+
+□ 08 Workers & Attendance
+└ 180. Attendance (daily) as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance?range=daily [200 OK, 652B, 39ms]
+
+└ 181. Attendance (daily) as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance?range=daily [200 OK, 652B, 5ms]
+
+└ 182. Attendance (daily) as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance?range=daily [200 OK, 652B, 5ms]
+
+└ 183. Attendance (daily) as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance?range=daily [404 Not Found, 377B, 4ms]
+
+└ 184. Attendance (daily) as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance?range=daily [404 Not Found, 377B, 4ms]
+
+└ 185. Attendance (weekly) as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance?range=weekly [200 OK, 667B, 7ms]
+
+└ 186. Attendance (monthly) as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance?range=monthly [200 OK, 668B, 6ms]
+
+└ 187. Attendance scan unauthenticated
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance/scan [401 Unauthorized, 384B, 1ms]
+
+└ 188. Attendance scan as CLIENT
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance/scan [403 Forbidden, 369B, 2ms]
+
+└ 189. Attendance scan as unassigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance/scan [404 Not Found, 377B, 4ms]
+
+└ 190. Attendance scan missing cameraId
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance/scan [400 Bad Request, 382B, 3ms]
+
+└ 191. Attendance scan camera from another project
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000102/attendance/scan [404 Not Found, 376B, 5ms]
+
+└ 192. Attendance invalid range
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance?range=yearly [400 Bad Request, 406B, 3ms]
+
+└ 193. Weekly count >= daily count
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/attendance?range=weekly [200 OK, 667B, 6ms]
+
+└ 194. List workers as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/workers [200 OK, 621B, 4ms]
+
+└ 195. List workers cross-tenant
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/workers [404 Not Found, 377B, 4ms]
+
+└ 196. Enroll worker as CLIENT
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/workers/enroll [403 Forbidden, 369B, 2ms]
+
+└ 197. Enroll worker missing photos
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/workers/enroll [400 Bad Request, 421B, 3ms]
+
+└ 198. Internal attendance without token
+  POST http://localhost:3100/api/internal/attendance-record [401 Unauthorized, 388B, 2ms]
+
+└ 199. Internal attendance wrong token
+  POST http://localhost:3100/api/internal/attendance-record [401 Unauthorized, 385B, 2ms]
+
+└ 200. Internal attendance with user JWT
+  POST http://localhost:3100/api/internal/attendance-record [401 Unauthorized, 385B, 2ms]
+
+└ 201. Internal attendance unknown worker
+  POST http://localhost:3100/api/internal/attendance-record [404 Not Found, 376B, 2ms]
+
+└ 202. Internal attendance invalid confidence
+  POST http://localhost:3100/api/internal/attendance-record [400 Bad Request, 405B, 1ms]
+
+└ 203. Internal attendance duplicate same day
+  POST http://localhost:3100/api/internal/attendance-record [200 OK, 700B, 9ms]
+
+└ 204. Internal workers without token
+  GET http://localhost:3100/api/internal/workers?projectId=00000000-0000-4000-8000-000000000101 [401 Unauthorized, 388B, 2ms]
+
+└ 205. Internal workers wrong token
+  GET http://localhost:3100/api/internal/workers?projectId=00000000-0000-4000-8000-000000000101 [401 Unauthorized, 385B, 2ms]
+
+└ 206. Internal workers missing projectId and cameraId
+  GET http://localhost:3100/api/internal/workers [400 Bad Request, 395B, 2ms]
+
+└ 207. Internal workers unknown camera
+  GET http://localhost:3100/api/internal/workers?cameraId=00000000-0000-4000-8000-999999999999 [404 Not Found, 376B, 2ms]
+
+└ 208. Internal workers by projectId
+  GET http://localhost:3100/api/internal/workers?projectId=00000000-0000-4000-8000-000000000101 [200 OK, 22.03kB, 4ms]
+
+└ 209. Internal workers by cameraId resolves project
+  GET http://localhost:3100/api/internal/workers?cameraId=00000000-0000-4000-8000-000000000202 [200 OK, 22.03kB, 4ms]
+
+└ 210. Delete worker as unassigned ENGINEER
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/workers/00000000-0000-4000-8000-000000000302 [403 Forbidden, 399B, 4ms]
+
+└ 211. Delete worker as CLIENT
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/workers/00000000-0000-4000-8000-000000000302 [403 Forbidden, 369B, 2ms]
+
+└ 212. Delete worker cross-tenant
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000102/workers/00000000-0000-4000-8000-000000000302 [404 Not Found, 376B, 3ms]
+
+└ 213. Delete worker unknown id
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/workers/00000000-0000-4000-8000-999999999999 [404 Not Found, 376B, 3ms]
+
+└ 214. Delete worker as assigned ENGINEER
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/workers/00000000-0000-4000-8000-000000000302 [204 No Content, 240B, 4ms]
+
+└ 215. Deleted worker no longer listed
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/workers [200 OK, 472B, 4ms]
+
+□ 09 Analytics & Reports
+└ 216. Analytics as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/analytics [200 OK, 1.48kB, 165ms]
+
+└ 217. Reports list as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports [200 OK, 341B, 9ms]
+
+└ 218. Analytics as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/analytics [200 OK, 1.48kB, 10ms]
+
+└ 219. Reports list as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports [200 OK, 341B, 5ms]
+
+└ 220. Analytics as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/analytics [200 OK, 1.48kB, 12ms]
+
+└ 221. Reports list as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports [200 OK, 341B, 9ms]
+
+└ 222. Analytics as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/analytics [404 Not Found, 377B, 4ms]
+
+└ 223. Reports list as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports [404 Not Found, 377B, 4ms]
+
+└ 224. Analytics as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/analytics [404 Not Found, 377B, 4ms]
+
+└ 225. Reports list as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports [404 Not Found, 377B, 4ms]
+
+└ 226. Analytics has all sections
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/analytics [200 OK, 1.48kB, 9ms]
+
+└ 227. Analytics honours date range
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/analytics?startDate=2020-01-01&endDate=2020-12-31 [200 OK, 794B, 9ms]
+
+└ 228. Generate report as ADMIN
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports/generate-now [201 Created, 654B, 59ms]
+
+└ 229. Generate report as assigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports/generate-now [201 Created, 654B, 25ms]
+
+└ 230. Generate report as unassigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports/generate-now [404 Not Found, 377B, 4ms]
+
+└ 231. Generate report as CLIENT
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports/generate-now [403 Forbidden, 369B, 3ms]
+
+└ 232. Generate report invalid type
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/reports/generate-now [400 Bad Request, 402B, 3ms]
+
+□ 10 Media
+└ 233. List media as ADMIN
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [200 OK, 341B, 7ms]
+
+└ 234. List media as assigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [200 OK, 341B, 5ms]
+
+└ 235. List media as owner CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [200 OK, 341B, 4ms]
+
+└ 236. List media as unassigned ENGINEER
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [404 Not Found, 377B, 5ms]
+
+└ 237. List media as other CLIENT
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [404 Not Found, 377B, 8ms]
+
+└ 238. Presign as unassigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/presign [403 Forbidden, 399B, 5ms]
+
+└ 239. Presign as CLIENT
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/presign [403 Forbidden, 369B, 3ms]
+
+└ 240. Presign as ADMIN
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/presign [200 OK, 870B, 4ms]
+
+└ 241. Presign rejects unsupported type
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/presign [400 Bad Request, 389B, 3ms]
+
+└ 242. Presign rejects oversized
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/presign [400 Bad Request, 396B, 5ms]
+
+└ 243. Presign missing fields
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/presign [400 Bad Request, 399B, 2ms]
+
+└ 244. Presign valid jpg
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/presign [200 OK, 870B, 10ms]
+
+└ 245. Record media as unassigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [403 Forbidden, 399B, 4ms]
+
+└ 246. Record media as CLIENT
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [403 Forbidden, 369B, 3ms]
+
+└ 247. Record media invalid type
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [400 Bad Request, 395B, 3ms]
+
+└ 248. Record media missing fields
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [400 Bad Request, 387B, 3ms]
+
+└ 249. Record media cross-tenant camera
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [404 Not Found, 393B, 5ms]
+
+└ 250. Record media as assigned ENGINEER
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [201 Created, 788B, 8ms]
+
+└ 251. New media appears in the list
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [200 OK, 785B, 6ms]
+
+└ 252. Delete media as unassigned ENGINEER
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/71a47027-2928-4b0f-8afd-fde8bdb2ad4c [403 Forbidden, 399B, 3ms]
+
+└ 253. Delete media as CLIENT
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/71a47027-2928-4b0f-8afd-fde8bdb2ad4c [403 Forbidden, 369B, 2ms]
+
+└ 254. Delete media unknown id
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/00000000-0000-4000-8000-999999999999 [404 Not Found, 381B, 4ms]
+
+└ 255. Delete media as assigned ENGINEER
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/71a47027-2928-4b0f-8afd-fde8bdb2ad4c [204 No Content, 240B, 7ms]
+
+└ 256. Deleted media no longer listed
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [200 OK, 341B, 4ms]
+
+└ 257. Record second media for admin-delete test
+  POST http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [201 Created, 793B, 26ms]
+
+└ 258. Delete media as ADMIN
+  DELETE http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media/de408ae4-718b-4bd3-beb4-6097ad18819a [204 No Content, 240B, 4ms]
+
+└ 259. Admin-deleted media no longer listed
+  GET http://localhost:3100/api/projects/00000000-0000-4000-8000-000000000101/media [200 OK, 341B, 5ms]
+
+□ 11 Billing
+└ 260. List plans
+  GET http://localhost:3100/api/billing/plans [200 OK, 551B, 1ms]
+
+└ 261. Subscription as ADMIN
+  GET http://localhost:3100/api/billing/subscription [200 OK, 716B, 6ms]
+
+└ 262. Subscription as ENGINEER
+  GET http://localhost:3100/api/billing/subscription [403 Forbidden, 369B, 2ms]
+
+└ 263. Subscription as CLIENT
+  GET http://localhost:3100/api/billing/subscription [403 Forbidden, 369B, 2ms]
+
+└ 264. Subscription unauthenticated
+  GET http://localhost:3100/api/billing/subscription [401 Unauthorized, 384B, 1ms]
+
+└ 265. Checkout as ADMIN
+  POST http://localhost:3100/api/billing/checkout [201 Created, 677B, 6ms]
+
+└ 266. Checkout as ENGINEER
+  POST http://localhost:3100/api/billing/checkout [403 Forbidden, 369B, 2ms]
+
+└ 267. Checkout as CLIENT
+  POST http://localhost:3100/api/billing/checkout [403 Forbidden, 369B, 4ms]
+
+└ 268. Checkout invalid plan
+  POST http://localhost:3100/api/billing/checkout [400 Bad Request, 405B, 3ms]
+
+└ 269. Checkout invalid provider
+  POST http://localhost:3100/api/billing/checkout [400 Bad Request, 396B, 2ms]
+
+└ 270. Webhook without signature
+  POST http://localhost:3100/api/billing/webhook/easypaisa [401 Unauthorized, 387B, 2ms]
+
+└ 271. Webhook forged signature
+  POST http://localhost:3100/api/billing/webhook/easypaisa [401 Unauthorized, 380B, 2ms]
+
+□ 12 Health
+└ 272. API health
+  GET http://localhost:3100/api/health [200 OK, 355B, 1ms]
+
+┌─────────────────────────┬───────────────────┬──────────────────┐
+│                         │          executed │           failed │
+├─────────────────────────┼───────────────────┼──────────────────┤
+│              iterations │                 1 │                0 │
+├─────────────────────────┼───────────────────┼──────────────────┤
+│                requests │               272 │                0 │
+├─────────────────────────┼───────────────────┼──────────────────┤
+│            test-scripts │               272 │                0 │
+├─────────────────────────┼───────────────────┼──────────────────┤
+│      prerequest-scripts │                 0 │                0 │
+├─────────────────────────┼───────────────────┼──────────────────┤
+│              assertions │               324 │                0 │
+├─────────────────────────┴───────────────────┴──────────────────┤
+│ total run duration: 24s                                        │
+├────────────────────────────────────────────────────────────────┤
+│ total data received: 110.49kB (approx)                         │
+├────────────────────────────────────────────────────────────────┤
+│ average response time: 13ms [min: 1ms, max: 374ms, s.d.: 40ms] │
+└────────────────────────────────────────────────────────────────┘

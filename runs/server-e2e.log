@@ -1,0 +1,24 @@
+(node:11452) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.12.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+Server running on port 3100
+ffmpeg RTSP timeout flag detected: -timeout
+[camera 30d372e9-ab57-47f8-b83f-50e7184314b7] ffmpeg: [in#0 @ 0000025306bf3240] Error opening input: Invalid data found when processing input
+Error opening input file rtsp://127.0.0.1:8554/testcam.
+Error opening input files: Invalid data found when processing input
+[camera 6c0312a0-cd0a-4b22-a44e-9a7337ad3765] ffmpeg: [in#0 @ 0000021ef12d6d00] Error opening input: Invalid data found when processing input
+Error opening input file rtsp://127.0.0.1:8554/testcam.
+Error opening input files: Invalid data found when processing input
+[camera 00000000-0000-4000-8000-000000000201] ffmpeg: [in#0 @ 000002a481753380] Error opening input: Invalid data found when processing input
+Error opening input file rtsp://127.0.0.1:8554/testcam.
+Error opening input files: Invalid data found when processing input
+[camera 00000000-0000-4000-8000-000000000202] ffmpeg: [in#0 @ 00000220ecbf39c0] Error opening input: Invalid data found when processing input
+Error opening input file rtsp://127.0.0.1:8554/testcam.
+Error opening input files: Invalid data found when processing input
+[camera f350e733-cd48-48cd-8267-3bd532187c10] ffmpeg: [in#0/mpjpeg @ 000001e6f7e12680] Error during demuxing: I/O error
